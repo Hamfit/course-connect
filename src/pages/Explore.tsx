@@ -1,95 +1,104 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, FileText, Video, Image, BookOpen, ChevronRight, Filter } from "lucide-react";
+import { Search, FileText, Video, Image, BookOpen, ChevronRight, Filter, GraduationCap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { supabase } from "@/integrations/supabase/client";
 
-const universities = [
-  "University of Lagos (UNILAG)",
-  "University of Ibadan (UI)",
-  "Obafemi Awolowo University (OAU)",
-  "University of Nigeria, Nsukka (UNN)",
-  "Ahmadu Bello University (ABU)",
-  "University of Benin (UNIBEN)",
-  "Federal University of Technology, Minna",
-  "Covenant University",
-  "Lagos State University (LASU)",
-  "University of Ilorin (UNILORIN)",
-];
+type BrowseStep = "university" | "department" | "level" | "materials";
 
-const departments = [
-  "Computer Science",
-  "Electrical Engineering",
-  "Medicine & Surgery",
-  "Accounting",
-  "Economics",
-  "Law",
-  "Mechanical Engineering",
-  "Biochemistry",
-  "Mass Communication",
-  "Business Administration",
-];
-
-const sampleMaterials = [
-  { title: "CSC 201 - Data Structures Notes", type: "pdf", university: "UNILAG", department: "Computer Science", course: "CSC 201", uploads: 45 },
-  { title: "Introduction to Microeconomics Lecture", type: "video", university: "UI", department: "Economics", course: "ECO 101", uploads: 32 },
-  { title: "Anatomy Diagrams Collection", type: "image", university: "UNN", department: "Medicine", course: "ANA 101", uploads: 67 },
-  { title: "Principles of Accounting Summary", type: "pdf", university: "OAU", department: "Accounting", course: "ACC 101", uploads: 89 },
-  { title: "Circuit Analysis Video Series", type: "video", university: "ABU", department: "Electrical Eng.", course: "EEE 201", uploads: 23 },
-  { title: "Constitutional Law Case Studies", type: "pdf", university: "UNIBEN", department: "Law", course: "LAW 301", uploads: 56 },
-];
+interface University { id: string; name: string; short_name: string; }
+interface Department { id: string; name: string; }
+interface Level { id: string; name: string; sort_order: number; }
+interface Material {
+  id: string; title: string; description: string | null;
+  type: string; file_url: string | null; downloads: number;
+  course_id: string; created_at: string;
+  courses?: { code: string; title: string; } | null;
+}
 
 const typeIcons: Record<string, typeof FileText> = {
-  pdf: FileText,
-  video: Video,
-  image: Image,
-  text: BookOpen,
+  pdf: FileText, video: Video, image: Image, text: BookOpen,
 };
-
 const typeColors: Record<string, string> = {
   pdf: "bg-destructive/10 text-destructive",
-  video: "bg-gold/10 text-gold",
+  video: "bg-accent/10 text-accent-foreground",
   image: "bg-primary/10 text-primary",
   text: "bg-secondary text-secondary-foreground",
 };
 
-type BrowseStep = "university" | "department" | "materials";
-
 const ExplorePage = () => {
   const [step, setStep] = useState<BrowseStep>("university");
-  const [selectedUni, setSelectedUni] = useState("");
-  const [selectedDept, setSelectedDept] = useState("");
+  const [selectedUni, setSelectedUni] = useState<University | null>(null);
+  const [selectedDept, setSelectedDept] = useState<Department | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const filteredUnis = universities.filter((u) =>
-    u.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const filteredDepts = departments.filter((d) =>
-    d.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const filteredMaterials = sampleMaterials.filter(
-    (m) =>
-      m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.course.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [levels, setLevels] = useState<Level[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+
+  useEffect(() => {
+    loadUniversities();
+  }, []);
+
+  const loadUniversities = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("universities").select("*").order("name");
+    setUniversities((data as University[]) || []);
+    setLoading(false);
+  };
+
+  const loadDepartments = async (uniId: string) => {
+    setLoading(true);
+    const { data } = await supabase.from("departments").select("*").eq("university_id", uniId).order("name");
+    setDepartments((data as Department[]) || []);
+    setLoading(false);
+  };
+
+  const loadLevels = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("levels").select("*").order("sort_order");
+    setLevels((data as Level[]) || []);
+    setLoading(false);
+  };
+
+  const loadMaterials = async (deptId: string, levelId: string) => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("materials")
+      .select("*, courses(code, title)")
+      .eq("status", "approved")
+      .eq("courses.department_id", deptId)
+      .eq("courses.level_id", levelId);
+    setMaterials((data as Material[]) || []);
+    setLoading(false);
+  };
 
   const breadcrumbs = [
-    { label: "Universities", step: "university" as BrowseStep, active: true },
-    ...(selectedUni ? [{ label: selectedUni.split("(")[0].trim(), step: "department" as BrowseStep, active: true }] : []),
-    ...(selectedDept ? [{ label: selectedDept, step: "materials" as BrowseStep, active: true }] : []),
+    { label: "Universities", step: "university" as BrowseStep },
+    ...(selectedUni ? [{ label: selectedUni.short_name, step: "department" as BrowseStep }] : []),
+    ...(selectedDept ? [{ label: selectedDept.name, step: "level" as BrowseStep }] : []),
+    ...(selectedLevel ? [{ label: selectedLevel.name, step: "materials" as BrowseStep }] : []),
   ];
+
+  const filtered = <T extends { name?: string; title?: string }>(items: T[]) =>
+    items.filter((i) =>
+      (i.name || i.title || "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="mb-2 text-3xl font-bold text-foreground">Explore Materials</h1>
           <p className="text-muted-foreground">
-            Browse through universities, departments, and courses to find what you need.
+            Browse through universities, departments, levels and courses to find what you need.
           </p>
         </div>
 
@@ -101,8 +110,9 @@ const ExplorePage = () => {
               <button
                 onClick={() => {
                   setStep(b.step);
-                  if (b.step === "university") { setSelectedUni(""); setSelectedDept(""); }
-                  if (b.step === "department") { setSelectedDept(""); }
+                  if (b.step === "university") { setSelectedUni(null); setSelectedDept(null); setSelectedLevel(null); }
+                  if (b.step === "department") { setSelectedDept(null); setSelectedLevel(null); }
+                  if (b.step === "level") { setSelectedLevel(null); }
                   setSearchQuery("");
                 }}
                 className="font-medium text-primary hover:underline"
@@ -121,6 +131,7 @@ const ExplorePage = () => {
               placeholder={
                 step === "university" ? "Search universities..." :
                 step === "department" ? "Search departments..." :
+                step === "level" ? "Search levels..." :
                 "Search materials..."
               }
               value={searchQuery}
@@ -133,30 +144,29 @@ const ExplorePage = () => {
           </Button>
         </div>
 
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+
         {/* University step */}
-        {step === "university" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {filteredUnis.map((uni) => (
+        {!loading && step === "university" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered(universities).map((uni) => (
               <button
-                key={uni}
-                onClick={() => {
-                  setSelectedUni(uni);
-                  setStep("department");
-                  setSearchQuery("");
-                }}
+                key={uni.id}
+                onClick={() => { setSelectedUni(uni); setStep("department"); loadDepartments(uni.id); setSearchQuery(""); }}
                 className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 text-left card-elevated"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-                    {uni.match(/\(([^)]+)\)/)?.[1]?.slice(0, 2) || uni.slice(0, 2)}
+                    {uni.short_name.slice(0, 2)}
                   </div>
-                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    {uni}
-                  </span>
+                  <div>
+                    <span className="font-medium text-foreground group-hover:text-primary transition-colors block">{uni.name}</span>
+                    <span className="text-xs text-muted-foreground">{uni.short_name}</span>
+                  </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
@@ -165,29 +175,45 @@ const ExplorePage = () => {
         )}
 
         {/* Department step */}
-        {step === "department" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {filteredDepts.map((dept) => (
+        {!loading && step === "department" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered(departments).map((dept) => (
               <button
-                key={dept}
-                onClick={() => {
-                  setSelectedDept(dept);
-                  setStep("materials");
-                  setSearchQuery("");
-                }}
+                key={dept.id}
+                onClick={() => { setSelectedDept(dept); setStep("level"); loadLevels(); setSearchQuery(""); }}
                 className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 text-left card-elevated"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
                     <BookOpen className="h-5 w-5 text-secondary-foreground" />
                   </div>
-                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    {dept}
-                  </span>
+                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">{dept.name}</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </button>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Level step */}
+        {!loading && step === "level" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered(levels).map((level) => (
+              <button
+                key={level.id}
+                onClick={() => {
+                  setSelectedLevel(level);
+                  setStep("materials");
+                  if (selectedDept) loadMaterials(selectedDept.id, level.id);
+                  setSearchQuery("");
+                }}
+                className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 text-left card-elevated"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/20">
+                    <GraduationCap className="h-5 w-5 text-accent-foreground" />
+                  </div>
+                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">{level.name}</span>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
@@ -196,39 +222,43 @@ const ExplorePage = () => {
         )}
 
         {/* Materials step */}
-        {step === "materials" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {filteredMaterials.map((material) => {
-              const Icon = typeIcons[material.type] || FileText;
-              const colorClass = typeColors[material.type] || typeColors.text;
-              return (
-                <div
-                  key={material.title}
-                  className="rounded-xl border border-border bg-card p-5 card-elevated"
-                >
-                  <div className="mb-3 flex items-start justify-between">
-                    <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}>
-                      <Icon className="h-3.5 w-3.5" />
-                      {material.type.toUpperCase()}
+        {!loading && step === "materials" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {materials.length === 0 ? (
+              <div className="py-20 text-center">
+                <BookOpen className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-semibold text-foreground">No materials yet</h3>
+                <p className="mb-4 text-muted-foreground">Be the first to upload materials for this course level!</p>
+                <Button asChild><a href="/upload">Upload Materials</a></Button>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {materials.map((material) => {
+                  const Icon = typeIcons[material.type] || FileText;
+                  const colorClass = typeColors[material.type] || typeColors.text;
+                  return (
+                    <div key={material.id} className="rounded-xl border border-border bg-card p-5 card-elevated">
+                      <div className="mb-3 flex items-start justify-between">
+                        <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}>
+                          <Icon className="h-3.5 w-3.5" />
+                          {material.type.toUpperCase()}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{material.downloads} downloads</span>
+                      </div>
+                      <h3 className="mb-1 font-display text-base font-semibold text-foreground">{material.title}</h3>
+                      <p className="mb-3 text-sm text-muted-foreground">
+                        {material.courses?.code} • {material.courses?.title}
+                      </p>
+                      {material.file_url && (
+                        <Button size="sm" className="w-full" asChild>
+                          <a href={material.file_url} target="_blank" rel="noopener noreferrer">View Material</a>
+                        </Button>
+                      )}
                     </div>
-                    <span className="text-xs text-muted-foreground">{material.uploads} downloads</span>
-                  </div>
-                  <h3 className="mb-1 font-display text-base font-semibold text-foreground">
-                    {material.title}
-                  </h3>
-                  <p className="mb-3 text-sm text-muted-foreground">
-                    {material.course} • {material.department}
-                  </p>
-                  <Button size="sm" className="w-full">
-                    View Material
-                  </Button>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
       </main>
