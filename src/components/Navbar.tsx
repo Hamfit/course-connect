@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X, Upload } from "lucide-react";
+import { BookOpen, Menu, X, Upload, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const links = [
     { to: "/", label: "Home" },
@@ -42,20 +44,27 @@ const Navbar = () => {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link to="/explore">
-            <Button variant="outline" size="sm">Sign In</Button>
-          </Link>
-          <Link to="/explore">
-            <Button size="sm">Get Started</Button>
-          </Link>
+          {user ? (
+            <>
+              <span className="text-sm text-muted-foreground">{user.email}</span>
+              <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5">
+                <LogOut className="h-4 w-4" /> Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/auth">
+                <Button variant="outline" size="sm">Sign In</Button>
+              </Link>
+              <Link to="/auth">
+                <Button size="sm">Get Started</Button>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
-        <button
-          className="md:hidden text-foreground"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
-        >
+        <button className="md:hidden text-foreground" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
           {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
@@ -66,18 +75,27 @@ const Navbar = () => {
           <div className="flex flex-col gap-2">
             {links.map((link) => (
               <Link key={link.to} to={link.to} onClick={() => setMobileOpen(false)}>
-                <Button
-                  variant={location.pathname === link.to ? "secondary" : "ghost"}
-                  className="w-full justify-start gap-2"
-                >
+                <Button variant={location.pathname === link.to ? "secondary" : "ghost"} className="w-full justify-start gap-2">
                   {link.icon && <link.icon className="h-4 w-4" />}
                   {link.label}
                 </Button>
               </Link>
             ))}
             <div className="mt-2 flex gap-2">
-              <Button variant="outline" className="flex-1">Sign In</Button>
-              <Button className="flex-1">Get Started</Button>
+              {user ? (
+                <Button variant="outline" className="flex-1 gap-1.5" onClick={signOut}>
+                  <LogOut className="h-4 w-4" /> Sign Out
+                </Button>
+              ) : (
+                <>
+                  <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
+                    <Button variant="outline" className="w-full">Sign In</Button>
+                  </Link>
+                  <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
+                    <Button className="w-full">Get Started</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
