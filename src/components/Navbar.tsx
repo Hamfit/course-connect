@@ -8,7 +8,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, displayName, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
 
   const links = [
@@ -49,7 +49,7 @@ const Navbar = () => {
         <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <>
-              <span className="text-sm text-muted-foreground">{user.email}</span>
+              <span className="text-sm text-muted-foreground">{displayName || user.email}</span>
               <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5">
                 <LogOut className="h-4 w-4" /> Sign Out
               </Button>
