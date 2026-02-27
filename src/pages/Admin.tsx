@@ -7,9 +7,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 
 interface Material {
   id: string;
@@ -34,8 +32,6 @@ const typeIcons: Record<string, React.ElementType> = {
 const AdminPage = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdmin();
-  const navigate = useNavigate();
 
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loadingMaterials, setLoadingMaterials] = useState(true);
@@ -43,14 +39,8 @@ const AdminPage = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
-    if (!authLoading && !adminLoading && user && !isAdmin) navigate("/");
-  }, [user, authLoading, isAdmin, adminLoading, navigate]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    fetchMaterials();
-  }, [isAdmin, filter]);
+    if (!authLoading && user) fetchMaterials();
+  }, [user, authLoading, filter]);
 
   const fetchMaterials = async () => {
     setLoadingMaterials(true);
@@ -90,15 +80,13 @@ const AdminPage = () => {
     setUpdatingId(null);
   };
 
-  if (authLoading || adminLoading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-  if (!isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-background">
