@@ -71,7 +71,7 @@ const ExplorePage = () => {
     setLoading(true);
     const { data } = await supabase
       .from("materials")
-      .select("*, courses(code, title)")
+      .select("*, courses!inner(code, title)")
       .eq("status", "approved")
       .eq("courses.department_id", deptId)
       .eq("courses.level_id", levelId);
