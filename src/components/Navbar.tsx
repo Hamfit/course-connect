@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X, Upload, LogOut } from "lucide-react";
+import { BookOpen, Menu, X, Upload, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -46,7 +47,14 @@ const Navbar = () => {
         <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <>
-              <span className="text-sm text-muted-foreground">{displayName || user.email}</span>
+              <Link to="/profile" className="flex items-center gap-2 rounded-full hover:opacity-80 transition-opacity">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                    {(displayName || user.email || "U").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground">{displayName || user.email}</span>
+              </Link>
               <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5">
                 <LogOut className="h-4 w-4" /> Sign Out
               </Button>
