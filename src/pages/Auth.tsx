@@ -110,6 +110,12 @@ const AuthPage = () => {
             {isLogin ? "Sign in to access your materials" : "Join CourseConnect today"}
           </p>
 
+          {awaitingVerification && (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-center text-sm text-foreground">
+              Waiting for email verification... You can confirm on any device — this page will sign you in automatically.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="relative">
