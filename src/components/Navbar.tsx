@@ -1,20 +1,25 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X, Upload, LogOut, User } from "lucide-react";
+import { BookOpen, Menu, X, Upload, LogOut, User, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const { user, displayName, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
 
-  const links = [
+  const links: { to: string; label: string; icon?: typeof Upload }[] = [
     { to: "/", label: "Home" },
     { to: "/explore", label: "Explore" },
     { to: "/upload", label: "Upload", icon: Upload },
   ];
+  if (isAdmin) {
+    links.push({ to: "/admin", label: "Admin", icon: Shield });
+  }
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
