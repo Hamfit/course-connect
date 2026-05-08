@@ -15,6 +15,7 @@ const AuthPage = () => {
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -22,6 +23,22 @@ const AuthPage = () => {
   useEffect(() => {
     if (user) navigate("/explore");
   }, [user, navigate]);
+
+  // While waiting for the user to verify their email (possibly on another device),
+  // periodically attempt to sign in. Once the email is confirmed, this succeeds and
+  // the auth state listener will redirect into the app.
+  useEffect(() => {
+    if (!awaitingVerification) return;
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error && data.session) {
+        clearInterval(interval);
+        toast({ title: "Email verified", description: "Signing you in..." });
+        navigate("/explore");
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [awaitingVerification, email, password, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +72,7 @@ const AuthPage = () => {
             title: "Check your email",
             description: "We've sent you a verification link. Please confirm your email to continue.",
           });
+          setAwaitingVerification(true);
         }
       }
     } catch (error: any) {
@@ -91,6 +109,12 @@ const AuthPage = () => {
           <p className="mb-6 text-center text-sm text-muted-foreground">
             {isLogin ? "Sign in to access your materials" : "Join CourseConnect today"}
           </p>
+
+          {awaitingVerification && (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-center text-sm text-foreground">
+              Waiting for email verification... You can confirm on any device — this page will sign you in automatically.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
