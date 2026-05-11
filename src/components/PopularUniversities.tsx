@@ -1,69 +1,107 @@
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-const universities = [
-  { name: "University of Lagos", shortName: "UNILAG", courses: 320, color: "bg-primary" },
-  { name: "University of Ibadan", shortName: "UI", courses: 280, color: "bg-gold" },
-  { name: "Obafemi Awolowo University", shortName: "OAU", courses: 250, color: "bg-primary" },
-  { name: "University of Nigeria", shortName: "UNN", courses: 300, color: "bg-gold" },
-  { name: "Ahmadu Bello University", shortName: "ABU", courses: 270, color: "bg-primary" },
-  { name: "University of Benin", shortName: "UNIBEN", courses: 220, color: "bg-gold" },
-  { name: "Federal University of Technology, Minna", shortName: "FUTMinna", courses: 190, color: "bg-primary" },
-  { name: "Covenant University", shortName: "CU", courses: 160, color: "bg-gold" },
-];
+interface UniRow {
+  id: string;
+  name: string;
+  short_name: string;
+  course_count: number;
+}
+
+const fetchUniversities = async (): Promise<UniRow[]> => {
+  const { data: unis } = await supabase
+    .from("universities")
+    .select("id, name, short_name")
+    .order("name");
+  if (!unis) return [];
+
+  // Live course counts per university (via departments → courses)
+  const counts = await Promise.all(
+    unis.map(async (u) => {
+      const { data: depts } = await supabase
+        .from("departments")
+        .select("id")
+        .eq("university_id", u.id);
+      const deptIds = (depts || []).map((d) => d.id);
+      if (deptIds.length === 0) return { ...u, course_count: 0 };
+      const { count } = await supabase
+        .from("courses")
+        .select("*", { count: "exact", head: true })
+        .in("department_id", deptIds);
+      return { ...u, course_count: count ?? 0 };
+    }),
+  );
+  return counts;
+};
 
 const PopularUniversities = () => {
+  const { data: universities = [], isLoading } = useQuery({
+    queryKey: ["universities-with-counts"],
+    queryFn: fetchUniversities,
+  });
+
   return (
     <section className="bg-secondary/50 py-20 lg:py-28">
       <div className="container mx-auto px-4">
         <div className="mb-12 flex items-end justify-between">
           <div>
             <div className="mb-3 text-sm font-semibold uppercase tracking-wider text-gold">
-              Popular Universities
+              Available Universities
             </div>
             <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
               Browse by University
             </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Launching with UNILAG. More universities coming soon.
+            </p>
           </div>
           <Link to="/explore" className="hidden md:block">
             <Button variant="ghost" className="gap-2">
-              View All <ArrowRight className="h-4 w-4" />
+              Explore <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {universities.map((uni, i) => (
-            <motion.div
-              key={uni.shortName}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.05 }}
-            >
-              <Link to="/explore" className="block">
-                <div className="group rounded-xl border border-border bg-card p-5 card-elevated">
-                  <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg ${uni.color} text-sm font-bold text-primary-foreground`}>
-                    {uni.shortName.slice(0, 2)}
+        {isLoading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {universities.map((uni, i) => (
+              <motion.div
+                key={uni.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.05 }}
+              >
+                <Link to="/explore" className="block">
+                  <div className="group rounded-xl border border-border bg-card p-5 card-elevated">
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+                      {uni.short_name.slice(0, 2)}
+                    </div>
+                    <h3 className="mb-1 font-display text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {uni.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {uni.course_count} {uni.course_count === 1 ? "course" : "courses"} available
+                    </p>
                   </div>
-                  <h3 className="mb-1 font-display text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {uni.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {uni.courses} courses available
-                  </p>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-8 text-center md:hidden">
           <Link to="/explore">
             <Button variant="outline" className="gap-2">
-              View All Universities <ArrowRight className="h-4 w-4" />
+              Explore Materials <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>

@@ -2,24 +2,47 @@ import { motion } from "framer-motion";
 import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-image.jpg";
 
-const stats = [
-  { value: "150+", label: "Universities" },
-  { value: "10K+", label: "Course Materials" },
-  { value: "50K+", label: "Students" },
-];
+const fetchStats = async () => {
+  const [unis, mats, users] = await Promise.all([
+    supabase.from("universities").select("*", { count: "exact", head: true }),
+    supabase.from("materials").select("*", { count: "exact", head: true }).eq("status", "approved"),
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+  ]);
+  return {
+    universities: unis.count ?? 0,
+    materials: mats.count ?? 0,
+    students: users.count ?? 0,
+  };
+};
+
+const formatCount = (n: number) => {
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K+`;
+  return n.toString();
+};
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const { data: stats } = useQuery({ queryKey: ["hero-stats"], queryFn: fetchStats });
+
+  const items = [
+    { value: stats ? stats.universities.toString() : "—", label: stats?.universities === 1 ? "University" : "Universities" },
+    { value: stats ? formatCount(stats.materials) : "—", label: "Course Materials" },
+    { value: stats ? formatCount(stats.students) : "—", label: "Students" },
+  ];
+
   return (
     <section className="relative overflow-hidden hero-gradient">
-      {/* Overlay pattern */}
       <div className="absolute inset-0 pattern-dots opacity-30" />
 
       <div className="container relative mx-auto px-4 py-20 lg:py-28">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* Left content */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -27,7 +50,7 @@ const HeroSection = () => {
           >
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary-foreground/10 px-4 py-1.5 text-sm font-medium text-primary-foreground">
               <span className="h-2 w-2 rounded-full bg-gold animate-pulse" />
-              Trusted by students across Nigeria
+              Now live at UNILAG
             </div>
 
             <h1 className="mb-6 text-4xl font-extrabold leading-tight tracking-tight text-primary-foreground sm:text-5xl lg:text-6xl">
@@ -36,27 +59,28 @@ const HeroSection = () => {
             </h1>
 
             <p className="mb-8 max-w-lg text-lg leading-relaxed text-primary-foreground/80">
-              Access verified course materials from your university, department, and courses.
-              No more scrambling during exam period — everything you need, structured and ready.
+              Built first for UNILAG students. Find verified notes, past questions and
+              lecture materials organised by department, level and course — no more scrambling during exam period.
             </p>
 
-            {/* Search bar */}
-            <div className="mb-8 flex max-w-md gap-2">
+            <form
+              className="mb-8 flex max-w-md gap-2"
+              onSubmit={(e) => { e.preventDefault(); navigate("/explore"); }}
+            >
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search universities, courses..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search departments, courses..."
                   className="h-12 bg-primary-foreground pl-10 text-foreground placeholder:text-muted-foreground"
                 />
               </div>
-              <Link to="/explore">
-                <Button variant="hero" size="lg" className="h-12">
-                  Search
-                </Button>
-              </Link>
-            </div>
+              <Button type="submit" variant="hero" size="lg" className="h-12">
+                Search
+              </Button>
+            </form>
 
-            {/* CTA buttons */}
             <div className="mb-10 flex flex-wrap gap-3">
               <Link to="/explore">
                 <Button variant="hero" size="lg" className="gap-2">
@@ -70,9 +94,8 @@ const HeroSection = () => {
               </Link>
             </div>
 
-            {/* Stats */}
             <div className="flex gap-8">
-              {stats.map((stat) => (
+              {items.map((stat) => (
                 <div key={stat.label}>
                   <div className="font-display text-2xl font-bold text-gold">
                     {stat.value}
@@ -85,7 +108,6 @@ const HeroSection = () => {
             </div>
           </motion.div>
 
-          {/* Right image */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
