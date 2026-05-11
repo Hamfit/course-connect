@@ -74,7 +74,9 @@ const ExplorePage = () => {
       .select("*, courses!inner(code, title)")
       .eq("status", "approved")
       .eq("courses.department_id", deptId)
-      .eq("courses.level_id", levelId);
+      .eq("courses.level_id", levelId)
+      .order("created_at", { ascending: false })
+      .limit(60);
     setMaterials((data as Material[]) || []);
     setLoading(false);
   };
