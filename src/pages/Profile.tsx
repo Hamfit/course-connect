@@ -65,11 +65,16 @@ const Profile = () => {
 
   const loadProfile = async (uid: string) => {
     setLoading(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", uid)
-      .single();
+    const [{ data }, { data: mats }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
+      supabase
+        .from("materials")
+        .select("id, title, type, created_at")
+        .eq("uploaded_by", uid)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
 
     if (data) {
       setProfile(data);
@@ -78,31 +83,24 @@ const Profile = () => {
       setDepartmentId(data.department_id);
       setLevelId(data.level_id);
 
-      // Resolve names
-      if (data.university_id) {
-        const { data: uni } = await supabase.from("universities").select("name").eq("id", data.university_id).single();
-        setUniName(uni?.name ?? null);
-      }
-      if (data.department_id) {
-        const { data: dept } = await supabase.from("departments").select("name").eq("id", data.department_id).single();
-        setDeptName(dept?.name ?? null);
-      }
-      if (data.level_id) {
-        const { data: lvl } = await supabase.from("levels").select("name").eq("id", data.level_id).single();
-        setLevelName(lvl?.name ?? null);
-      }
+      // Resolve names in parallel
+      const [uniRes, deptRes, lvlRes] = await Promise.all([
+        data.university_id
+          ? supabase.from("universities").select("name").eq("id", data.university_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        data.department_id
+          ? supabase.from("departments").select("name").eq("id", data.department_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        data.level_id
+          ? supabase.from("levels").select("name").eq("id", data.level_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      setUniName((uniRes.data as any)?.name ?? null);
+      setDeptName((deptRes.data as any)?.name ?? null);
+      setLevelName((lvlRes.data as any)?.name ?? null);
     }
 
-    // Load public materials
-    const { data: mats } = await supabase
-      .from("materials")
-      .select("id, title, type, created_at")
-      .eq("uploaded_by", uid)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(10);
     setMaterials(mats || []);
-
     setLoading(false);
   };
 
