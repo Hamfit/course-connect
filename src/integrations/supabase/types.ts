@@ -21,6 +21,7 @@ export type Database = {
           department_id: string
           id: string
           level_id: string
+          semester: number
           title: string
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           department_id: string
           id?: string
           level_id: string
+          semester?: number
           title: string
         }
         Update: {
@@ -37,6 +39,7 @@ export type Database = {
           department_id?: string
           id?: string
           level_id?: string
+          semester?: number
           title?: string
         }
         Relationships: [
