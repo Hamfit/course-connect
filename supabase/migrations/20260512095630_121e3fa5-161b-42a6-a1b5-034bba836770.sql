@@ -1,0 +1,2 @@
+ALTER TABLE public.courses ADD COLUMN semester smallint NOT NULL DEFAULT 1 CHECK (semester IN (1,2));
+CREATE INDEX IF NOT EXISTS idx_courses_dept_level_semester ON public.courses (department_id, level_id, semester);
