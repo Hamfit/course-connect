@@ -15,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 interface University { id: string; name: string; short_name: string; }
 interface Department { id: string; name: string; }
 interface Level { id: string; name: string; sort_order: number; }
-interface Course { id: string; title: string; code: string; }
+interface Course { id: string; title: string; code: string; semester: number; }
 
 const UploadPage = () => {
   const { toast } = useToast();
@@ -36,6 +36,7 @@ const UploadPage = () => {
   const [uniId, setUniId] = useState("");
   const [deptId, setDeptId] = useState("");
   const [levelId, setLevelId] = useState("");
+  const [semester, setSemester] = useState<string>("");
   const [courseId, setCourseId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -63,10 +64,10 @@ const UploadPage = () => {
   }, [deptId]);
 
   useEffect(() => {
-    if (!deptId || !levelId) return;
+    if (!deptId || !levelId || !semester) return;
     setCourseId("");
-    supabase.from("courses").select("*").eq("department_id", deptId).eq("level_id", levelId).order("code").then(({ data }) => setCourses((data as Course[]) || []));
-  }, [deptId, levelId]);
+    supabase.from("courses").select("*").eq("department_id", deptId).eq("level_id", levelId).eq("semester", Number(semester)).order("code").then(({ data }) => setCourses((data as Course[]) || []));
+  }, [deptId, levelId, semester]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +81,7 @@ const UploadPage = () => {
       if (courseId === "__new" && newCourseCode && newCourseTitle) {
         const { data: newCourse, error: courseErr } = await supabase
           .from("courses")
-          .insert({ code: newCourseCode, title: newCourseTitle, department_id: deptId, level_id: levelId } as any)
+          .insert({ code: newCourseCode, title: newCourseTitle, department_id: deptId, level_id: levelId, semester: Number(semester) } as any)
           .select()
           .single();
         if (courseErr) throw courseErr;
@@ -192,8 +193,22 @@ const UploadPage = () => {
               </div>
             )}
 
-            {/* Course */}
+            {/* Semester */}
             {levelId && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-foreground">Semester</label>
+                <Select value={semester} onValueChange={setSemester} required>
+                  <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">First Semester</SelectItem>
+                    <SelectItem value="2">Second Semester</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Course */}
+            {semester && (
               <div>
                 <label className="mb-2 block text-sm font-medium text-foreground">Course</label>
                 <Select value={courseId} onValueChange={setCourseId} required>
