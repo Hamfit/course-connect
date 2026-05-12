@@ -14,6 +14,10 @@ const Upload = lazy(() => import("./pages/Upload"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Profile = lazy(() => import("./pages/Profile"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const CommunityGuidelines = lazy(() => import("./pages/CommunityGuidelines"));
+const Copyright = lazy(() => import("./pages/Copyright"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -49,6 +53,10 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:userId" element={<Profile />} />
             <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+            <Route path="/copyright" element={<Copyright />} />
             <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
