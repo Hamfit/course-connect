@@ -113,10 +113,10 @@ const ExplorePage = () => {
         </div>
 
         {/* Breadcrumbs */}
-        <div className="mb-6 flex items-center gap-1 text-sm">
+        <div className="mb-6 flex flex-wrap items-center gap-y-1 gap-x-1 text-sm">
           {breadcrumbs.map((b, i) => (
-            <div key={b.label} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            <div key={b.label} className="flex items-center gap-1 min-w-0">
+              {i > 0 && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
               <button
                 onClick={() => {
                   setStep(b.step);
@@ -126,7 +126,7 @@ const ExplorePage = () => {
                 if (b.step === "semester") { setSelectedSemester(null); }
                   setSearchQuery("");
                 }}
-                className="font-medium text-primary hover:underline"
+                className="font-medium text-primary hover:underline truncate max-w-[12rem]"
               >
                 {b.label}
               </button>
@@ -136,7 +136,7 @@ const ExplorePage = () => {
 
         {/* Search */}
         <div className="mb-8 flex gap-3">
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 sm:max-w-md min-w-0">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={
@@ -151,7 +151,7 @@ const ExplorePage = () => {
               className="pl-10"
             />
           </div>
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="h-4 w-4" />
           </Button>
         </div>
@@ -269,21 +269,21 @@ const ExplorePage = () => {
                 <Button asChild><a href="/upload">Upload Materials</a></Button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {materials.map((material) => {
                   const Icon = typeIcons[material.type] || FileText;
                   const colorClass = typeColors[material.type] || typeColors.text;
                   return (
-                    <div key={material.id} className="rounded-xl border border-border bg-card p-5 card-elevated">
-                      <div className="mb-3 flex items-start justify-between">
-                        <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}>
+                    <div key={material.id} className="flex flex-col rounded-xl border border-border bg-card p-5 card-elevated min-w-0">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}>
                           <Icon className="h-3.5 w-3.5" />
                           {material.type.toUpperCase()}
                         </div>
-                        <span className="text-xs text-muted-foreground">{material.downloads} downloads</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{material.downloads} downloads</span>
                       </div>
-                      <h3 className="mb-1 font-display text-base font-semibold text-foreground">{material.title}</h3>
-                      <p className="mb-3 text-sm text-muted-foreground">
+                      <h3 className="mb-1 font-display text-base font-semibold text-foreground break-words">{material.title}</h3>
+                      <p className="mb-3 text-sm text-muted-foreground break-words">
                         {material.courses?.code} • {material.courses?.title}
                       </p>
                       {material.file_url && (
