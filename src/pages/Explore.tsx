@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, FileText, Video, Image, BookOpen, ChevronRight, Filter, GraduationCap, Loader2 } from "lucide-react";
+import { Search, FileText, Video, Image, BookOpen, ChevronRight, Filter, GraduationCap, CalendarDays, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 
-type BrowseStep = "university" | "department" | "level" | "materials";
+type BrowseStep = "university" | "department" | "level" | "semester" | "materials";
 
 interface University { id: string; name: string; short_name: string; }
 interface Department { id: string; name: string; }
@@ -16,8 +16,13 @@ interface Material {
   id: string; title: string; description: string | null;
   type: string; file_url: string | null; downloads: number;
   course_id: string; created_at: string;
-  courses?: { code: string; title: string; } | null;
+  courses?: { code: string; title: string; semester: number; } | null;
 }
+
+const SEMESTERS = [
+  { value: 1, label: "First Semester" },
+  { value: 2, label: "Second Semester" },
+];
 
 const typeIcons: Record<string, typeof FileText> = {
   pdf: FileText, video: Video, image: Image, text: BookOpen,
@@ -34,6 +39,7 @@ const ExplorePage = () => {
   const [selectedUni, setSelectedUni] = useState<University | null>(null);
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -67,14 +73,15 @@ const ExplorePage = () => {
     setLoading(false);
   };
 
-  const loadMaterials = async (deptId: string, levelId: string) => {
+  const loadMaterials = async (deptId: string, levelId: string, semester: number) => {
     setLoading(true);
     const { data } = await supabase
       .from("materials")
-      .select("*, courses!inner(code, title)")
+      .select("*, courses!inner(code, title, semester)")
       .eq("status", "approved")
       .eq("courses.department_id", deptId)
       .eq("courses.level_id", levelId)
+      .eq("courses.semester", semester)
       .order("created_at", { ascending: false })
       .limit(60);
     setMaterials((data as Material[]) || []);
@@ -85,7 +92,8 @@ const ExplorePage = () => {
     { label: "Universities", step: "university" as BrowseStep },
     ...(selectedUni ? [{ label: selectedUni.short_name, step: "department" as BrowseStep }] : []),
     ...(selectedDept ? [{ label: selectedDept.name, step: "level" as BrowseStep }] : []),
-    ...(selectedLevel ? [{ label: selectedLevel.name, step: "materials" as BrowseStep }] : []),
+    ...(selectedLevel ? [{ label: selectedLevel.name, step: "semester" as BrowseStep }] : []),
+    ...(selectedSemester ? [{ label: SEMESTERS.find((s) => s.value === selectedSemester)!.label, step: "materials" as BrowseStep }] : []),
   ];
 
   const filtered = <T extends { name?: string; title?: string }>(items: T[]) =>
@@ -112,9 +120,10 @@ const ExplorePage = () => {
               <button
                 onClick={() => {
                   setStep(b.step);
-                  if (b.step === "university") { setSelectedUni(null); setSelectedDept(null); setSelectedLevel(null); }
-                  if (b.step === "department") { setSelectedDept(null); setSelectedLevel(null); }
-                  if (b.step === "level") { setSelectedLevel(null); }
+                if (b.step === "university") { setSelectedUni(null); setSelectedDept(null); setSelectedLevel(null); setSelectedSemester(null); }
+                if (b.step === "department") { setSelectedDept(null); setSelectedLevel(null); setSelectedSemester(null); }
+                if (b.step === "level") { setSelectedLevel(null); setSelectedSemester(null); }
+                if (b.step === "semester") { setSelectedSemester(null); }
                   setSearchQuery("");
                 }}
                 className="font-medium text-primary hover:underline"
@@ -134,6 +143,7 @@ const ExplorePage = () => {
                 step === "university" ? "Search universities..." :
                 step === "department" ? "Search departments..." :
                 step === "level" ? "Search levels..." :
+                step === "semester" ? "Search semesters..." :
                 "Search materials..."
               }
               value={searchQuery}
@@ -205,8 +215,7 @@ const ExplorePage = () => {
                 key={level.id}
                 onClick={() => {
                   setSelectedLevel(level);
-                  setStep("materials");
-                  if (selectedDept) loadMaterials(selectedDept.id, level.id);
+                  setStep("semester");
                   setSearchQuery("");
                 }}
                 className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 text-left card-elevated"
@@ -216,6 +225,32 @@ const ExplorePage = () => {
                     <GraduationCap className="h-5 w-5 text-accent-foreground" />
                   </div>
                   <span className="font-medium text-foreground group-hover:text-primary transition-colors">{level.name}</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </button>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Semester step */}
+        {!loading && step === "semester" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-3 sm:grid-cols-2">
+            {SEMESTERS.filter((s) => s.label.toLowerCase().includes(searchQuery.toLowerCase())).map((sem) => (
+              <button
+                key={sem.value}
+                onClick={() => {
+                  setSelectedSemester(sem.value);
+                  setStep("materials");
+                  if (selectedDept && selectedLevel) loadMaterials(selectedDept.id, selectedLevel.id, sem.value);
+                  setSearchQuery("");
+                }}
+                className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 text-left card-elevated"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <CalendarDays className="h-5 w-5 text-primary" />
+                  </div>
+                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">{sem.label}</span>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
