@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import AdminRoute from "@/components/AdminRoute";
 import { Loader2 } from "lucide-react";
+import AuthenticationGuard from "./components/AuthenticationGuard";
 
 const Index = lazy(() => import("./pages/Index"));
 const Explore = lazy(() => import("./pages/Explore"));
@@ -46,18 +47,25 @@ const App = () => (
         <BrowserRouter>
           <Suspense fallback={<RouteFallback />}>
             <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/:userId" element={<Profile />} />
-            <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/community-guidelines" element={<CommunityGuidelines />} />
-            <Route path="/copyright" element={<Copyright />} />
-            <Route path="*" element={<NotFound />} />
+              {/* Public routes */}
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+              <Route path="/copyright" element={<Copyright />} />
+
+              <Route path="/" element={<Index />} />
+              <Route path="/explore" element={<Explore />} />
+              <Route path="/auth" element={<Auth />} />
+
+              {/* Authenticated routes */}
+              <Route element={<AuthenticationGuard />}>
+                <Route path="/upload" element={<Upload />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/profile/:userId" element={<Profile />} />
+                <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+              </Route>
+
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </BrowserRouter>
