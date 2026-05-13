@@ -69,7 +69,7 @@ const Navbar = () => {
               <Link to="/auth">
                 <Button variant="outline" size="sm">Sign In</Button>
               </Link>
-              <Link to="/auth">
+              <Link to="/auth?mode=signup">
                 <Button size="sm">Get Started</Button>
               </Link>
             </>
@@ -104,7 +104,7 @@ const Navbar = () => {
                   <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
                     <Button variant="outline" className="w-full">Sign In</Button>
                   </Link>
-                  <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
+                  <Link to="/auth?mode=signup" className="flex-1" onClick={() => setMobileOpen(false)}>
                     <Button className="w-full">Get Started</Button>
                   </Link>
                 </>
