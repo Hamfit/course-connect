@@ -118,6 +118,7 @@ export type Database = {
           downloads: number
           file_url: string | null
           id: string
+          rejection_reason: string | null
           status: Database["public"]["Enums"]["material_status"]
           title: string
           type: Database["public"]["Enums"]["material_type"]
@@ -132,6 +133,7 @@ export type Database = {
           downloads?: number
           file_url?: string | null
           id?: string
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["material_status"]
           title: string
           type: Database["public"]["Enums"]["material_type"]
@@ -146,6 +148,7 @@ export type Database = {
           downloads?: number
           file_url?: string | null
           id?: string
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["material_status"]
           title?: string
           type?: Database["public"]["Enums"]["material_type"]
@@ -270,6 +273,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_material_downloads: {
+        Args: { _id: string }
+        Returns: undefined
       }
     }
     Enums: {
