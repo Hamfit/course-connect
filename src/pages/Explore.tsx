@@ -86,6 +86,13 @@ const ExplorePage = () => {
     } catch {
       window.open(material.file_url, "_blank");
     }
+    // Increment downloads counter (best-effort, fire-and-forget).
+    try {
+      await supabase.rpc("increment_material_downloads", { _id: material.id });
+      setMaterials((prev) => prev.map((m) => m.id === material.id ? { ...m, downloads: m.downloads + 1 } : m));
+    } catch {
+      /* noop */
+    }
   };
 
   useEffect(() => {
