@@ -292,7 +292,12 @@ const UploadPage = () => {
               </div>
             </div>
 
-            <Button type="submit" size="lg" className="w-full gap-2" disabled={uploading || !courseId || courseId === ""}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full gap-2"
+              disabled={uploading || !courseId || courseId === "" || (materialType !== "text" && !file)}
+            >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {uploading ? "Uploading..." : "Submit Material"}
             </Button>
