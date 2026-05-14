@@ -263,11 +263,11 @@ const AdminPage = () => {
                           animate={{ opacity: 1, y: 0 }}
                           className="rounded-xl border border-border bg-card p-5"
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex-1 min-w-0">
                               <div className="mb-2 flex items-center gap-2">
                                 <TypeIcon className="h-4 w-4 text-muted-foreground" />
-                                <h3 className="font-semibold text-foreground">{material.title}</h3>
+                                <h3 className="font-semibold text-foreground break-words">{material.title}</h3>
                                 <Badge variant="outline" className="capitalize">{material.type}</Badge>
                               </div>
                               {material.description && (
@@ -284,7 +284,7 @@ const AdminPage = () => {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:shrink-0">
                               {material.file_url && (
                                 <Button variant="outline" size="sm" asChild>
                                   <a href={material.file_url} target="_blank" rel="noopener noreferrer">
