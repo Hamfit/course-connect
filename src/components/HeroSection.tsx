@@ -3,8 +3,8 @@ import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-image.jpg";
 
@@ -29,7 +29,19 @@ const formatCount = (n: number) => {
 const HeroSection = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
   const { data: stats } = useQuery({ queryKey: ["hero-stats"], queryFn: fetchStats });
+
+  useEffect(() => {
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["hero-stats"] });
+    const channel = supabase
+      .channel("hero-stats-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "materials" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "universities" }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const items = [
     { value: stats ? stats.universities.toString() : "—", label: stats?.universities === 1 ? "University" : "Universities" },
