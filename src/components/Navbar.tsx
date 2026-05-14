@@ -17,6 +17,9 @@ const Navbar = () => {
     { to: "/explore", label: "Explore" },
     { to: "/upload", label: "Upload", icon: Upload },
   ];
+  if (user) {
+    links.push({ to: "/profile", label: "Profile", icon: User });
+  }
   if (isAdmin) {
     links.push({ to: "/admin", label: "Admin", icon: Shield });
   }
