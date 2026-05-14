@@ -7,11 +7,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { RotateCcw } from "lucide-react";
 
 interface Material {
   id: string;
@@ -22,6 +25,7 @@ interface Material {
   file_url: string | null;
   created_at: string;
   uploaded_by: string;
+  rejection_reason: string | null;
   courses: { code: string; title: string } | null;
   profiles: { display_name: string } | null;
 }
@@ -45,6 +49,8 @@ const AdminPage = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0, users: 0 });
   const [loadingStats, setLoadingStats] = useState(true);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; title: string; mode: "reject" | "revoke" } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     if (!authLoading && user) fetchStats();
@@ -94,18 +100,43 @@ const AdminPage = () => {
     setLoadingMaterials(false);
   };
 
-  const updateStatus = async (id: string, status: "approved" | "rejected") => {
+  const updateStatus = async (
+    id: string,
+    status: "approved" | "rejected",
+    rejection_reason?: string | null
+  ) => {
     setUpdatingId(id);
-    const { error } = await supabase.from("materials").update({ status } as any).eq("id", id);
+    const payload: any = { status };
+    if (status === "rejected") payload.rejection_reason = rejection_reason ?? null;
+    if (status === "approved") payload.rejection_reason = null;
+    const { error } = await supabase.from("materials").update(payload).eq("id", id);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: status === "approved" ? "Material Approved" : "Material Rejected" });
+      toast({
+        title:
+          status === "approved"
+            ? "Material Approved"
+            : rejection_reason && materials.find((m) => m.id === id)?.status === "approved"
+            ? "Approval Revoked"
+            : "Material Rejected",
+      });
       setMaterials((prev) => prev.filter((m) => m.id !== id));
       fetchStats();
     }
     setUpdatingId(null);
+  };
+
+  const submitRejection = async () => {
+    if (!rejectTarget) return;
+    if (!rejectReason.trim()) {
+      toast({ title: "Reason required", description: "Please provide feedback for the uploader.", variant: "destructive" });
+      return;
+    }
+    await updateStatus(rejectTarget.id, "rejected", rejectReason.trim());
+    setRejectTarget(null);
+    setRejectReason("");
   };
 
   if (authLoading) {
@@ -275,17 +306,45 @@ const AdminPage = () => {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => updateStatus(material.id, "rejected")}
+                                    onClick={() => { setRejectTarget({ id: material.id, title: material.title, mode: "reject" }); setRejectReason(""); }}
                                     disabled={updatingId === material.id}
                                     className="gap-1"
                                   >
                                     {updatingId === material.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                                    Reject
+                                    Reject…
                                   </Button>
                                 </>
                               )}
+                              {section === "approved" && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => { setRejectTarget({ id: material.id, title: material.title, mode: "revoke" }); setRejectReason(""); }}
+                                  disabled={updatingId === material.id}
+                                  className="gap-1"
+                                >
+                                  {updatingId === material.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                                  Revoke
+                                </Button>
+                              )}
+                              {section === "rejected" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => updateStatus(material.id, "approved")}
+                                  disabled={updatingId === material.id}
+                                  className="gap-1"
+                                >
+                                  {updatingId === material.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                  Approve
+                                </Button>
+                              )}
                             </div>
                           </div>
+                          {section === "rejected" && material.rejection_reason && (
+                            <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-foreground">
+                              <span className="font-semibold text-destructive">Feedback to uploader:</span> {material.rejection_reason}
+                            </div>
+                          )}
                         </motion.div>
                       );
                     })}
@@ -297,6 +356,34 @@ const AdminPage = () => {
         </div>
       </main>
       <Footer />
+
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {rejectTarget?.mode === "revoke" ? "Revoke approval" : "Reject material"}
+            </DialogTitle>
+            <DialogDescription>
+              {rejectTarget?.mode === "revoke"
+                ? `"${rejectTarget?.title}" will be unpublished. Tell the uploader why so they can fix and resubmit.`
+                : `Provide feedback so the uploader of "${rejectTarget?.title}" knows what to improve.`}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="e.g. Document is blurry, please re-scan and upload again."
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>Cancel</Button>
+            <Button variant="destructive" onClick={submitRejection} disabled={!!updatingId}>
+              {updatingId ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+              {rejectTarget?.mode === "revoke" ? "Revoke & notify" : "Reject & notify"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
