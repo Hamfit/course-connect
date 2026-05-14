@@ -66,13 +66,13 @@ const Profile = () => {
   const loadProfile = async (uid: string) => {
     setLoading(true);
     const isOwn = user?.id === uid;
-    const matsQuery = supabase
+    let matsQuery: any = supabase
       .from("materials")
       .select("id, title, type, created_at, status, rejection_reason")
       .eq("uploaded_by", uid)
       .order("created_at", { ascending: false })
       .limit(20);
-    if (!isOwn) matsQuery.eq("status", "approved");
+    if (!isOwn) matsQuery = matsQuery.eq("status", "approved");
 
     const [{ data }, { data: mats }] = await Promise.all([
       supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
