@@ -27,7 +27,7 @@ interface ProfileData {
 interface University { id: string; name: string; short_name: string; }
 interface Department { id: string; name: string; }
 interface Level { id: string; name: string; }
-interface MaterialSummary { id: string; title: string; type: string; created_at: string; }
+interface MaterialSummary { id: string; title: string; type: string; created_at: string; status: string; rejection_reason: string | null; }
 
 const Profile = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -65,15 +65,18 @@ const Profile = () => {
 
   const loadProfile = async (uid: string) => {
     setLoading(true);
+    const isOwn = user?.id === uid;
+    const matsQuery = supabase
+      .from("materials")
+      .select("id, title, type, created_at, status, rejection_reason")
+      .eq("uploaded_by", uid)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (!isOwn) matsQuery.eq("status", "approved");
+
     const [{ data }, { data: mats }] = await Promise.all([
       supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
-      supabase
-        .from("materials")
-        .select("id, title, type, created_at")
-        .eq("uploaded_by", uid)
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(10),
+      matsQuery,
     ]);
 
     if (data) {
@@ -100,7 +103,7 @@ const Profile = () => {
       setLevelName((lvlRes.data as any)?.name ?? null);
     }
 
-    setMaterials(mats || []);
+    setMaterials((mats as MaterialSummary[]) || []);
     setLoading(false);
   };
 
@@ -342,13 +345,33 @@ const Profile = () => {
             ) : (
               <ul className="space-y-3">
                 {materials.map((m) => (
-                  <li key={m.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                    <div>
-                      <p className="font-medium text-foreground">{m.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {m.type.toUpperCase()} • {new Date(m.created_at).toLocaleDateString()}
-                      </p>
+                  <li key={m.id} className="rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground break-words">{m.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {m.type.toUpperCase()} • {new Date(m.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {isOwnProfile && (
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                            m.status === "approved"
+                              ? "bg-primary/10 text-primary"
+                              : m.status === "rejected"
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+                      )}
                     </div>
+                    {isOwnProfile && m.status === "rejected" && m.rejection_reason && (
+                      <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-foreground">
+                        <span className="font-semibold text-destructive">Admin feedback:</span> {m.rejection_reason}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
