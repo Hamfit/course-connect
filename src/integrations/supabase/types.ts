@@ -244,6 +244,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_agreements: {
+        Row: {
+          agreed_at: string
+          agreed_community_guidelines: boolean
+          agreed_copyright: boolean
+          agreed_privacy: boolean
+          agreed_terms: boolean
+          created_at: string
+          id: string
+          signup_method: string | null
+          user_id: string
+        }
+        Insert: {
+          agreed_at?: string
+          agreed_community_guidelines?: boolean
+          agreed_copyright?: boolean
+          agreed_privacy?: boolean
+          agreed_terms?: boolean
+          created_at?: string
+          id?: string
+          signup_method?: string | null
+          user_id: string
+        }
+        Update: {
+          agreed_at?: string
+          agreed_community_guidelines?: boolean
+          agreed_copyright?: boolean
+          agreed_privacy?: boolean
+          agreed_terms?: boolean
+          created_at?: string
+          id?: string
+          signup_method?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
