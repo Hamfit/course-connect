@@ -33,7 +33,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const onlyGoogle = identities.length > 0 && identities.every((i) => i.provider === "google");
         const createdAt = u.created_at ? new Date(u.created_at).getTime() : 0;
         const isBrandNew = Date.now() - createdAt < 60_000;
+        let pendingAgreement: { method?: string; at?: string } | null = null;
+        try {
+          const raw = localStorage.getItem("cc_pending_agreement");
+          if (raw) pendingAgreement = JSON.parse(raw);
+        } catch {}
         if (onlyGoogle && isBrandNew) {
+          // Allow new Google signups only if the user explicitly agreed on the auth page.
+          if (pendingAgreement) {
+            try {
+              await supabase.from("user_agreements").insert({
+                user_id: u.id,
+                agreed_privacy: true,
+                agreed_terms: true,
+                agreed_copyright: true,
+                agreed_community_guidelines: true,
+                signup_method: "google",
+                agreed_at: pendingAgreement.at ?? new Date().toISOString(),
+              });
+            } catch {}
+            try { localStorage.removeItem("cc_pending_agreement"); } catch {}
+            setSession(session);
+            setUser(u);
+            setLoading(false);
+            return;
+          }
           // Block: this Google account has no prior CourseConnect registration.
           try {
             await supabase.functions.invoke("block-new-google-signup");
@@ -48,6 +72,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setLoading(false);
           return;
+        }
+        // Email-signup case: session arrived after email verification; persist pending agreement.
+        if (pendingAgreement && isBrandNew) {
+          try {
+            await supabase.from("user_agreements").insert({
+              user_id: u.id,
+              agreed_privacy: true,
+              agreed_terms: true,
+              agreed_copyright: true,
+              agreed_community_guidelines: true,
+              signup_method: pendingAgreement.method ?? "email",
+              agreed_at: pendingAgreement.at ?? new Date().toISOString(),
+            });
+          } catch {}
+          try { localStorage.removeItem("cc_pending_agreement"); } catch {}
         }
       }
       setSession(session);
