@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { BookOpen, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -18,6 +19,7 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [awaitingVerification, setAwaitingVerification] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -60,6 +62,14 @@ const AuthPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLogin && !agreedToTerms) {
+      toast({
+        title: "Agreement required",
+        description: "Please agree to our Privacy Policy, Terms of Service, Copyright and Community Guidelines to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -178,7 +188,24 @@ const AuthPage = () => {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            {!isLogin && (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="agree-terms"
+                  checked={agreedToTerms}
+                  onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                  className="mt-0.5"
+                />
+                <label htmlFor="agree-terms" className="text-xs leading-relaxed text-muted-foreground">
+                  I agree to the{" "}
+                  <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link>,{" "}
+                  <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms of Service</Link>,{" "}
+                  <Link to="/copyright" target="_blank" className="text-primary hover:underline">Copyright</Link>, and{" "}
+                  <Link to="/community-guidelines" target="_blank" className="text-primary hover:underline">Community Guidelines</Link>.
+                </label>
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loading || (!isLogin && !agreedToTerms)}>
               {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
             </Button>
           </form>
