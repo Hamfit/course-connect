@@ -9,8 +9,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 interface University { id: string; name: string; short_name: string; }
 interface Department { id: string; name: string; }
@@ -20,8 +21,12 @@ interface Course { id: string; title: string; code: string; semester: number; }
 const UploadPage = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const [submitted, setSubmitted] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -46,6 +51,20 @@ const UploadPage = () => {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from("profiles").select("*").eq("user_id", user.id).single().then(({ data }) => {
+        setProfile(data);
+        if (data?.university_id) {
+          setUniId(data.university_id);
+        }
+        setProfileLoading(false);
+      });
+    } else if (!authLoading) {
+      setProfileLoading(false);
+    }
+  }, [user, authLoading]);
 
   useEffect(() => {
     supabase.from("universities").select("*").order("name").then(({ data }) => setUniversities((data as University[]) || []));
@@ -118,10 +137,35 @@ const UploadPage = () => {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || profileLoading || adminLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const isProfileComplete = profile?.university_id && profile?.department_id && profile?.level_id;
+
+  if (!isProfileComplete) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto flex min-h-[60vh] items-center justify-center px-4 py-20">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md">
+            <div className="mb-4 inline-flex items-center justify-center rounded-full bg-primary/10 p-4">
+              <BookOpen className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="mb-2 text-2xl font-bold text-foreground">Update Your Profile</h2>
+            <p className="mb-6 text-muted-foreground">
+              You must complete your profile by selecting your university, department, and level before you can upload materials.
+            </p>
+            <Button asChild>
+              <Link to="/profile">Go to Profile</Link>
+            </Button>
+          </motion.div>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -159,7 +203,7 @@ const UploadPage = () => {
             {/* University */}
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">University</label>
-              <Select value={uniId} onValueChange={setUniId} required>
+              <Select value={uniId} onValueChange={setUniId} required disabled={!isAdmin}>
                 <SelectTrigger><SelectValue placeholder="Select your university" /></SelectTrigger>
                 <SelectContent>
                   {universities.map((u) => <SelectItem key={u.id} value={u.id}>{u.name} ({u.short_name})</SelectItem>)}

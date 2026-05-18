@@ -105,7 +105,7 @@ const AuthPage = () => {
           password,
           options: {
             data: { display_name: displayName },
-            emailRedirectTo: `${window.location.origin}/auth`,
+            emailRedirectTo: `${window.location.origin}/verify-success`,
           },
         });
         if (error) throw error;
