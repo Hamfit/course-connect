@@ -19,6 +19,7 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const CommunityGuidelines = lazy(() => import("./pages/CommunityGuidelines"));
 const Copyright = lazy(() => import("./pages/Copyright"));
+const VerifySuccess = lazy(() => import("./pages/VerifySuccess"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/terms" element={<Terms />} />
               <Route path="/community-guidelines" element={<CommunityGuidelines />} />
               <Route path="/copyright" element={<Copyright />} />
+              <Route path="/verify-success" element={<VerifySuccess />} />
 
               <Route path="/" element={<Index />} />
               <Route path="/explore" element={<Explore />} />
