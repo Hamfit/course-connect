@@ -172,6 +172,7 @@ export type Database = {
           department_id: string | null
           display_name: string
           id: string
+          identification_url: string | null
           level_id: string | null
           university_id: string | null
           updated_at: string
@@ -183,6 +184,7 @@ export type Database = {
           department_id?: string | null
           display_name: string
           id?: string
+          identification_url?: string | null
           level_id?: string | null
           university_id?: string | null
           updated_at?: string
@@ -194,6 +196,7 @@ export type Database = {
           department_id?: string | null
           display_name?: string
           id?: string
+          identification_url?: string | null
           level_id?: string | null
           university_id?: string | null
           updated_at?: string
