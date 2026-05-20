@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Pencil, BookOpen, GraduationCap, Building2, FileText, Camera } from "lucide-react";
+import { Loader2, Pencil, BookOpen, GraduationCap, Building2, FileText, Camera, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProfileData {
@@ -21,6 +21,7 @@ interface ProfileData {
   university_id: string | null;
   department_id: string | null;
   level_id: string | null;
+  identification_url: string | null;
   created_at: string;
 }
 
@@ -43,6 +44,9 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const [uploadingId, setUploadingId] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [universityId, setUniversityId] = useState<string | null>(null);
@@ -165,8 +169,37 @@ const Profile = () => {
   };
 
   const saveProfile = async () => {
-    if (!user) return;
+    if (!user || !profile) return;
+    
+    if (!profile.identification_url && !idFile) {
+      toast({ title: "Identification Required", description: "Please upload your School ID or Admission Letter to update your profile.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
+    let identificationUrl = profile.identification_url;
+
+    if (idFile) {
+      setUploadingId(true);
+      const ext = idFile.name.split(".").pop();
+      const path = `${user.id}/id_document_${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("identifications")
+        .upload(path, idFile);
+
+      setUploadingId(false);
+
+      if (uploadError) {
+        toast({ title: "Upload failed", description: "Failed to upload identification document.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from("identifications").getPublicUrl(path);
+      identificationUrl = urlData.publicUrl;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -174,6 +207,7 @@ const Profile = () => {
         university_id: universityId,
         department_id: departmentId,
         level_id: levelId,
+        identification_url: identificationUrl,
       })
       .eq("user_id", user.id);
 
@@ -264,7 +298,7 @@ const Profile = () => {
                   </div>
                   <div>
                     <Label>University</Label>
-                    <Select value={universityId || ""} onValueChange={onUniversityChange}>
+                    <Select value={universityId || ""} onValueChange={onUniversityChange} disabled={!!profile.university_id}>
                       <SelectTrigger><SelectValue placeholder="Select university" /></SelectTrigger>
                       <SelectContent>
                         {universities.map((u) => (
@@ -272,10 +306,11 @@ const Profile = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {!!profile.university_id && <p className="text-xs text-muted-foreground mt-1">University cannot be changed once set.</p>}
                   </div>
                   <div>
                     <Label>Department</Label>
-                    <Select value={departmentId || ""} onValueChange={(v) => setDepartmentId(v)} disabled={!universityId}>
+                    <Select value={departmentId || ""} onValueChange={(v) => setDepartmentId(v)} disabled={!universityId || !!profile.department_id}>
                       <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                       <SelectContent>
                         {departments.map((d) => (
@@ -283,6 +318,7 @@ const Profile = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {!!profile.department_id && <p className="text-xs text-muted-foreground mt-1">Department cannot be changed once set.</p>}
                   </div>
                   <div>
                     <Label>Level</Label>
@@ -295,9 +331,22 @@ const Profile = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label>Means of Identification (School ID / Admission Letter)</Label>
+                    {!profile.identification_url ? (
+                      <div className="mt-1">
+                        <Input type="file" accept="image/*,.pdf" onChange={(e) => setIdFile(e.target.files?.[0] || null)} />
+                        <p className="mt-1 text-xs text-muted-foreground">Required to update your profile.</p>
+                      </div>
+                    ) : (
+                      <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                        <CheckCircle className="h-4 w-4 text-primary" /> Document uploaded
+                      </p>
+                    )}
+                  </div>
                   <div className="flex gap-2 pt-2">
-                    <Button onClick={saveProfile} disabled={saving}>
-                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
+                    <Button onClick={saveProfile} disabled={saving || uploadingId}>
+                      {(saving || uploadingId) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
                     </Button>
                     <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
                   </div>
