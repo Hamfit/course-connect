@@ -79,12 +79,11 @@ const UploadPage = () => {
   useEffect(() => {
     if (!deptId) return;
     setLevelId(""); setCourseId("");
-    // Fetch only the levels that are valid for this department via the junction table
+    // Fetch only the levels valid for this department via the junction table
     supabase
       .from("department_levels")
       .select("level_id, levels(id, name, sort_order)")
       .eq("department_id", deptId)
-      .order("levels(sort_order)")
       .then(({ data }) => {
         const lvls: Level[] = (data || [])
           .map((row: any) => row.levels)
