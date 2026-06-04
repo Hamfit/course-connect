@@ -113,10 +113,17 @@ const ExplorePage = () => {
     setLoading(false);
   };
 
-  const loadLevels = async () => {
+  const loadLevels = async (deptId: string) => {
     setLoading(true);
-    const { data } = await supabase.from("levels").select("*").order("sort_order");
-    setLevels((data as Level[]) || []);
+    const { data } = await supabase
+      .from("department_levels")
+      .select("level_id, levels(id, name, sort_order)")
+      .eq("department_id", deptId);
+    const lvls: Level[] = (data || [])
+      .map((row: any) => row.levels)
+      .filter(Boolean)
+      .sort((a: Level, b: Level) => a.sort_order - b.sort_order);
+    setLevels(lvls);
     setLoading(false);
   };
 
@@ -293,7 +300,7 @@ const ExplorePage = () => {
             {filtered(departments).map((dept) => (
               <button
                 key={dept.id}
-                onClick={() => { setSelectedDept(dept); setStep("level"); loadLevels(); setSearchQuery(""); }}
+                onClick={() => { setSelectedDept(dept); setStep("level"); loadLevels(dept.id); setSearchQuery(""); }}
                 className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 text-left card-elevated"
               >
                 <div className="flex items-center gap-3">
