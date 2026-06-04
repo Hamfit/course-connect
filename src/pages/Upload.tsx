@@ -158,7 +158,7 @@ const UploadPage = () => {
 
   const isProfileComplete = profile?.university_id && profile?.department_id && profile?.level_id;
 
-  if (!isProfileComplete) {
+  if (!isProfileComplete && !isAdmin) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
