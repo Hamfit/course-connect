@@ -53,8 +53,8 @@ CREATE INDEX IF NOT EXISTS idx_dept_levels_dept ON public.department_levels (dep
 -- Step 3: Seed the department_levels for UNILAG departments.
 -- Unilag structure:
 --   Computer Science       → 100–400 Level  (4-year programme)
---   Accounting             → 100–400 Level  (4-year programme)
---   Economics              → 100–400 Level  (4-year programme)
+--   Accounting             → 100–500 Level  (5-year programme)
+--   Economics              → 100–500 Level  (5-year programme)
 --   Electrical Engineering → 100–500 Level  (5-year engineering programme)
 --   Civil Engineering      → 100–500 Level  (5-year engineering programme)
 DO $$
@@ -72,12 +72,12 @@ BEGIN
   FOR dept_id, dept_name IN
     SELECT id, name FROM public.departments WHERE university_id = unilag_id
   LOOP
-    -- Engineering programmes: 5 years (100–500 Level)
-    -- All others: 4 years (100–400 Level)
-    IF dept_name IN ('Electrical Engineering', 'Civil Engineering') THEN
-      max_level_val := 500;
-    ELSE
+    -- Only Computer Science is a 4-year programme (100–400 Level)
+    -- All others run to 500 Level
+    IF dept_name = 'Computer Science' THEN
       max_level_val := 400;
+    ELSE
+      max_level_val := 500;
     END IF;
 
     FOR lvl_id, lvl_sort IN
