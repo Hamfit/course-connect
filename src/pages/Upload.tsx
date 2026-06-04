@@ -79,7 +79,19 @@ const UploadPage = () => {
   useEffect(() => {
     if (!deptId) return;
     setLevelId(""); setCourseId("");
-    supabase.from("levels").select("*").order("sort_order").then(({ data }) => setLevels((data as Level[]) || []));
+    // Fetch only the levels that are valid for this department via the junction table
+    supabase
+      .from("department_levels")
+      .select("level_id, levels(id, name, sort_order)")
+      .eq("department_id", deptId)
+      .order("levels(sort_order)")
+      .then(({ data }) => {
+        const lvls: Level[] = (data || [])
+          .map((row: any) => row.levels)
+          .filter(Boolean)
+          .sort((a: Level, b: Level) => a.sort_order - b.sort_order);
+        setLevels(lvls);
+      });
   }, [deptId]);
 
   useEffect(() => {

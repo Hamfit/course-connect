@@ -111,25 +111,46 @@ const Profile = () => {
     setLoading(false);
   };
 
+  /** Fetch levels filtered by department via the junction table */
+  const fetchLevelsForDept = async (deptId: string) => {
+    const { data } = await supabase
+      .from("department_levels")
+      .select("level_id, levels(id, name, sort_order)")
+      .eq("department_id", deptId);
+    const lvls: Level[] = (data || [])
+      .map((row: any) => row.levels)
+      .filter(Boolean)
+      .sort((a: Level, b: Level) => (a as any).sort_order - (b as any).sort_order);
+    setLevels(lvls);
+  };
+
   const startEditing = async () => {
     setEditing(true);
-    const [{ data: unis }, { data: lvls }] = await Promise.all([
-      supabase.from("universities").select("*").order("name"),
-      supabase.from("levels").select("*").order("sort_order"),
-    ]);
+    const { data: unis } = await supabase.from("universities").select("*").order("name");
     setUniversities(unis || []);
-    setLevels(lvls || []);
     if (universityId) {
       const { data: depts } = await supabase.from("departments").select("*").eq("university_id", universityId).order("name");
       setDepartments(depts || []);
+    }
+    // Load levels for the already-selected department (if any)
+    if (departmentId) {
+      await fetchLevelsForDept(departmentId);
     }
   };
 
   const onUniversityChange = async (val: string) => {
     setUniversityId(val);
     setDepartmentId(null);
+    setLevelId(null);
+    setLevels([]);
     const { data } = await supabase.from("departments").select("*").eq("university_id", val).order("name");
     setDepartments(data || []);
+  };
+
+  const onDepartmentChange = async (val: string) => {
+    setDepartmentId(val);
+    setLevelId(null);
+    await fetchLevelsForDept(val);
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -310,7 +331,7 @@ const Profile = () => {
                   </div>
                   <div>
                     <Label>Department</Label>
-                    <Select value={departmentId || ""} onValueChange={(v) => setDepartmentId(v)} disabled={!universityId || !!profile.department_id}>
+                    <Select value={departmentId || ""} onValueChange={onDepartmentChange} disabled={!universityId || !!profile.department_id}>
                       <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                       <SelectContent>
                         {departments.map((d) => (

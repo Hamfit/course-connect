@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Rounded square background matching primary: hsl(152, 45%, 22%) -->
+  <rect width="32" height="32" rx="7" ry="7" fill="#1f4a33"/>
+
+  <!-- BookOpen icon (lucide) scaled to fit, white -->
+  <g transform="translate(5, 6)" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- left page -->
+    <path d="M2 3 C2 3 5 2 11 5 L11 19 C5 16 2 17 2 17 Z"/>
+    <!-- right page -->
+    <path d="M20 3 C20 3 17 2 11 5 L11 19 C17 16 20 17 20 17 Z"/>
+    <!-- spine line -->
+    <line x1="11" y1="5" x2="11" y2="19"/>
+  </g>
+</svg>
