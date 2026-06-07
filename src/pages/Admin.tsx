@@ -37,7 +37,23 @@ const typeIcons: Record<string, React.ElementType> = {
   text: BookOpen,
 };
 
-type Section = "overview" | "pending" | "approved" | "rejected";
+type Section = "overview" | "pending" | "approved" | "rejected" | "verify_profiles";
+
+interface UserProfile {
+  id: string;
+  display_name: string;
+  avatar_url: string | null;
+  university_id: string | null;
+  department_id: string | null;
+  level_id: string | null;
+  identification_url: string | null;
+  created_at: string;
+  verification_status: string;
+  verification_rejection_reason: string | null;
+  universities: { name: string; short_name: string } | null;
+  departments: { name: string } | null;
+  levels: { name: string } | null;
+}
 
 const AdminPage = () => {
   const { toast } = useToast();
@@ -47,7 +63,16 @@ const AdminPage = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loadingMaterials, setLoadingMaterials] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0, users: 0 });
+  
+  // User verification states
+  const [userSubTab, setUserSubTab] = useState<"pending" | "approved" | "rejected">("pending");
+  const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [profileRejectTarget, setProfileRejectTarget] = useState<{ id: string; display_name: string } | null>(null);
+  const [profileRejectReason, setProfileRejectReason] = useState("");
+
+  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0, users: 0, pendingUsers: 0 });
   const [loadingStats, setLoadingStats] = useState(true);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; title: string; mode: "reject" | "revoke" } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -57,17 +82,20 @@ const AdminPage = () => {
   }, [user, authLoading]);
 
   useEffect(() => {
-    if (!authLoading && user && section !== "overview") fetchMaterials(section);
+    if (!authLoading && user && section !== "overview" && section !== "verify_profiles") {
+      fetchMaterials(section as any);
+    }
   }, [user, authLoading, section]);
 
   const fetchStats = async () => {
     setLoadingStats(true);
-    const [pending, approved, rejected, total, users] = await Promise.all([
+    const [pending, approved, rejected, total, users, pendingUsers] = await Promise.all([
       supabase.from("materials").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("materials").select("*", { count: "exact", head: true }).eq("status", "approved"),
       supabase.from("materials").select("*", { count: "exact", head: true }).eq("status", "rejected"),
       supabase.from("materials").select("*", { count: "exact", head: true }),
       supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("verification_status", "pending"),
     ]);
     setStats({
       pending: pending.count || 0,
@@ -75,6 +103,7 @@ const AdminPage = () => {
       rejected: rejected.count || 0,
       total: total.count || 0,
       users: users.count || 0,
+      pendingUsers: pendingUsers.count || 0,
     });
     setLoadingStats(false);
   };
@@ -139,6 +168,71 @@ const AdminPage = () => {
     setRejectReason("");
   };
 
+  const fetchUserProfiles = async (status: "pending" | "approved" | "rejected") => {
+    setLoadingUsers(true);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*, universities(name, short_name), departments(name), levels(name)")
+      .eq("verification_status", status)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast({ title: "Error fetching profiles", description: error.message, variant: "destructive" });
+      setUserProfiles([]);
+    } else {
+      setUserProfiles((data as any) || []);
+    }
+    setLoadingUsers(false);
+  };
+
+  useEffect(() => {
+    if (!authLoading && user && section === "verify_profiles") {
+      fetchUserProfiles(userSubTab);
+    }
+  }, [user, authLoading, section, userSubTab]);
+
+  const updateProfileStatus = async (
+    profileId: string,
+    status: "approved" | "rejected",
+    rejectionReason?: string | null
+  ) => {
+    setUpdatingUserId(profileId);
+    const payload: any = { verification_status: status };
+    if (status === "rejected") {
+      payload.verification_rejection_reason = rejectionReason ?? null;
+    } else {
+      payload.verification_rejection_reason = null;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", profileId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({
+        title: status === "approved" ? "Profile Verified" : "Profile Verification Rejected",
+        description: status === "approved" ? "The user can now upload materials." : "Notification/rejection reason sent.",
+      });
+      setUserProfiles((prev) => prev.filter((p) => p.id !== profileId));
+      fetchStats();
+    }
+    setUpdatingUserId(null);
+  };
+
+  const submitProfileRejection = async () => {
+    if (!profileRejectTarget) return;
+    if (!profileRejectReason.trim()) {
+      toast({ title: "Reason required", description: "Please provide feedback for the user.", variant: "destructive" });
+      return;
+    }
+    await updateProfileStatus(profileRejectTarget.id, "rejected", profileRejectReason.trim());
+    setProfileRejectTarget(null);
+    setProfileRejectReason("");
+  };
+
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -152,6 +246,7 @@ const AdminPage = () => {
     { key: "pending", label: "Pending Review", icon: Clock, badge: stats.pending },
     { key: "approved", label: "Approved", icon: FileCheck, badge: stats.approved },
     { key: "rejected", label: "Rejected", icon: FileX, badge: stats.rejected },
+    { key: "verify_profiles", label: "Verify Profiles", icon: Users, badge: stats.pendingUsers },
   ];
 
   const statCards = [
@@ -160,6 +255,7 @@ const AdminPage = () => {
     { label: "Approved", value: stats.approved, icon: FileCheck, color: "text-primary", bg: "bg-primary/10" },
     { label: "Rejected", value: stats.rejected, icon: FileX, color: "text-destructive", bg: "bg-destructive/10" },
     { label: "Total Users", value: stats.users, icon: Users, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Pending Verifications", value: stats.pendingUsers, icon: CheckCircle, color: "text-gold", bg: "bg-gold/10" },
   ];
 
   return (
@@ -204,7 +300,153 @@ const AdminPage = () => {
 
           {/* Content */}
           <section>
-            {section === "overview" ? (
+            {section === "verify_profiles" ? (
+              <div>
+                <h2 className="mb-4 text-xl font-semibold text-foreground">User Profile Verification</h2>
+                
+                {/* User subtabs */}
+                <div className="mb-6 flex gap-2 border-b border-border pb-4">
+                  {(["pending", "approved", "rejected"] as const).map((tab) => (
+                    <Button
+                      key={tab}
+                      variant={userSubTab === tab ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setUserSubTab(tab)}
+                      className="capitalize"
+                    >
+                      {tab} ({
+                        tab === "pending" ? stats.pendingUsers :
+                        tab === "approved" ? "Verified" : "Rejected"
+                      })
+                    </Button>
+                  ))}
+                </div>
+
+                {loadingUsers ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : userProfiles.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-12 text-center">
+                    <p className="text-muted-foreground">No {userSubTab} profiles found.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userProfiles.map((p) => (
+                      <motion.div
+                        key={p.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-xl border border-border bg-card p-5"
+                      >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="mb-2 flex items-center gap-2">
+                              <h3 className="font-semibold text-foreground break-words">{p.display_name}</h3>
+                              <span className="text-xs text-muted-foreground">Joined {new Date(p.created_at).toLocaleDateString()}</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:grid-cols-3">
+                              <div>University: <strong className="text-foreground">{p.universities?.name || "—"}</strong></div>
+                              <div>Department: <strong className="text-foreground">{p.departments?.name || "—"}</strong></div>
+                              <div>Level: <strong className="text-foreground">{p.levels?.name || "—"}</strong></div>
+                            </div>
+
+                            {/* Identification ID Document preview */}
+                            {p.identification_url && (
+                              <div className="mt-4 max-w-sm overflow-hidden rounded-lg border border-border bg-secondary/10">
+                                {p.identification_url.toLowerCase().endsWith(".pdf") ? (
+                                  <div className="flex items-center gap-3 p-4">
+                                    <FileText className="h-8 w-8 text-primary" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs font-medium text-foreground truncate">PDF Identification Document</p>
+                                      <p className="text-[10px] text-muted-foreground">Click View to open</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="relative group">
+                                    <img
+                                      src={p.identification_url}
+                                      alt="Student ID card or admission letter preview"
+                                      className="max-h-48 w-full object-contain bg-black/5"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:shrink-0">
+                            {p.identification_url && (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={p.identification_url} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="mr-1 h-3 w-3" /> View ID
+                                </a>
+                              </Button>
+                            )}
+
+                            {userSubTab === "pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => updateProfileStatus(p.id, "approved")}
+                                  disabled={updatingUserId === p.id}
+                                  className="gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                                >
+                                  {updatingUserId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                  Verify
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => setProfileRejectTarget({ id: p.id, display_name: p.display_name })}
+                                  disabled={updatingUserId === p.id}
+                                  className="gap-1"
+                                >
+                                  {updatingUserId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                                  Reject…
+                                </Button>
+                              </>
+                            )}
+
+                            {userSubTab === "approved" && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setProfileRejectTarget({ id: p.id, display_name: p.display_name })}
+                                disabled={updatingUserId === p.id}
+                                className="gap-1"
+                              >
+                                {updatingUserId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                                Reject / Revoke
+                              </Button>
+                            )}
+
+                            {userSubTab === "rejected" && (
+                              <Button
+                                size="sm"
+                                onClick={() => updateProfileStatus(p.id, "approved")}
+                                disabled={updatingUserId === p.id}
+                                className="gap-1"
+                              >
+                                {updatingUserId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                Verify / Approve
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {userSubTab === "rejected" && p.verification_rejection_reason && (
+                          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-foreground">
+                            <span className="font-semibold text-destructive">Rejection reason:</span> {p.verification_rejection_reason}
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : section === "overview" ? (
               <div className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {statCards.map((s) => (
@@ -231,6 +473,9 @@ const AdminPage = () => {
                   <CardContent className="flex flex-wrap gap-2">
                     <Button onClick={() => setSection("pending")} className="gap-1.5">
                       <Clock className="h-4 w-4" /> Review Pending ({stats.pending})
+                    </Button>
+                    <Button variant="outline" onClick={() => setSection("verify_profiles")} className="gap-1.5 border-gold text-gold hover:bg-gold/10 hover:text-gold">
+                      <Users className="h-4 w-4" /> Verify Profiles ({stats.pendingUsers})
                     </Button>
                     <Button variant="outline" onClick={() => setSection("approved")} className="gap-1.5">
                       <FileCheck className="h-4 w-4" /> View Approved
@@ -380,6 +625,30 @@ const AdminPage = () => {
             <Button variant="destructive" onClick={submitRejection} disabled={!!updatingId}>
               {updatingId ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
               {rejectTarget?.mode === "revoke" ? "Revoke & notify" : "Reject & notify"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!profileRejectTarget} onOpenChange={(o) => { if (!o) { setProfileRejectTarget(null); setProfileRejectReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Profile Verification</DialogTitle>
+            <DialogDescription>
+              Provide feedback to {profileRejectTarget?.display_name} explaining why their verification was rejected.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={profileRejectReason}
+            onChange={(e) => setProfileRejectReason(e.target.value)}
+            placeholder="e.g. Student ID is expired or names do not match. Please upload a valid ID."
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setProfileRejectTarget(null); setProfileRejectReason(""); }}>Cancel</Button>
+            <Button variant="destructive" onClick={submitProfileRejection} disabled={!!updatingUserId}>
+              {updatingUserId ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+              Reject Profile
             </Button>
           </DialogFooter>
         </DialogContent>
