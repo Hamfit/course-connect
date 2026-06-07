@@ -49,7 +49,13 @@ const ExplorePage = () => {
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "title">("recent");
   const [viewing, setViewing] = useState<Material | null>(null);
 
+  // Global cache states
   const [universities, setUniversities] = useState<University[]>([]);
+  const [allDepartments, setAllDepartments] = useState<Department[]>([]);
+  const [allLevels, setAllLevels] = useState<Level[]>([]);
+  const [allDeptLevels, setAllDeptLevels] = useState<any[]>([]);
+
+  // Active step options
   const [departments, setDepartments] = useState<Department[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -96,42 +102,51 @@ const ExplorePage = () => {
   };
 
   useEffect(() => {
-    loadUniversities();
+    loadInitialData();
   }, []);
 
-  const loadUniversities = async () => {
+  const loadInitialData = async () => {
     setLoading(true);
-    const { data } = await supabase.from("universities").select("*").order("name");
-    setUniversities((data as University[]) || []);
+    try {
+      const [{ data: unis }, { data: depts }, { data: lvls }, { data: deptLvls }] = await Promise.all([
+        supabase.from("universities").select("*").order("name"),
+        supabase.from("departments").select("*").order("name"),
+        supabase.from("levels").select("*").order("sort_order"),
+        supabase.from("department_levels").select("*")
+      ]);
+
+      setUniversities((unis as University[]) || []);
+      setAllDepartments((depts as Department[]) || []);
+      setAllLevels((lvls as Level[]) || []);
+      setAllDeptLevels((deptLvls as any[]) || []);
+    } catch (err) {
+      console.error("Error loading explore options:", err);
+    }
     setLoading(false);
   };
 
-  const loadDepartments = async (uniId: string) => {
-    setLoading(true);
-    const { data } = await supabase.from("departments").select("*").eq("university_id", uniId).order("name");
-    setDepartments((data as Department[]) || []);
-    setLoading(false);
+  const loadDepartments = (uniId: string) => {
+    const filteredDepts = allDepartments.filter((d) => d.university_id === uniId);
+    setDepartments(filteredDepts);
   };
 
-  const loadLevels = async (deptId: string) => {
-    setLoading(true);
-    const { data } = await (supabase as any)
-      .from("department_levels")
-      .select("level_id, levels(id, name, sort_order)")
-      .eq("department_id", deptId);
-    const lvls: Level[] = (data || [])
-      .map((row: any) => row.levels)
-      .filter(Boolean)
+  const loadLevels = (deptId: string) => {
+    const validLevelIds = new Set(
+      allDeptLevels
+        .filter((dl) => dl.department_id === deptId)
+        .map((dl) => dl.level_id)
+    );
+    const filteredLvls = allLevels
+      .filter((l) => validLevelIds.has(l.id))
       .sort((a: Level, b: Level) => a.sort_order - b.sort_order);
-    setLevels(lvls);
-    setLoading(false);
+    setLevels(filteredLvls);
   };
 
   const loadMaterials = async (deptId: string, levelId: string, semester: number) => {
     setLoading(true);
     const { data } = await supabase
       .from("materials")
-      .select("*, courses!inner(code, title, semester)")
+      .select("id, title, description, type, file_url, downloads, course_id, created_at, courses!inner(code, title, semester)")
       .eq("status", "approved")
       .eq("courses.department_id", deptId)
       .eq("courses.level_id", levelId)
