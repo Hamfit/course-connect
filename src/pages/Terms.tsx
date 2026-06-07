@@ -60,7 +60,7 @@ const Terms = () => (
     <p>We may update these Terms from time to time. Continued use after notice constitutes acceptance.</p>
 
     <h2>15. Contact</h2>
-    <p>Email: <a href="mailto:legal@courseconnect.ng">legal@courseconnect.ng</a><br />Address: Yaba, Lagos, Nigeria</p>
+    <p>Email: <a href="mailto:legal@courseconnect.ng">legal@courseconnect.ng</a><br />Address: Lagos, Nigeria</p>
   </LegalLayout>
 );
 

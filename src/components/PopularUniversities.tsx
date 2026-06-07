@@ -28,11 +28,14 @@ const fetchUniversities = async (): Promise<UniRow[]> => {
         .eq("university_id", u.id);
       const deptIds = (depts || []).map((d) => d.id);
       if (deptIds.length === 0) return { ...u, course_count: 0 };
-      const { count } = await supabase
-        .from("courses")
-        .select("*", { count: "exact", head: true })
-        .in("department_id", deptIds);
-      return { ...u, course_count: count ?? 0 };
+      const { data: approvedMaterials } = await supabase
+        .from("materials")
+        .select("course_id, courses!inner(department_id)")
+        .eq("status", "approved")
+        .in("courses.department_id", deptIds);
+
+      const uniqueCourseIds = new Set((approvedMaterials || []).map((m: any) => m.course_id));
+      return { ...u, course_count: uniqueCourseIds.size };
     }),
   );
   return counts;
