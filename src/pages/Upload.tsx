@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Upload, FileText, Video, Image, BookOpen, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, Video, Image, BookOpen, CheckCircle, Loader2, Clock, XCircle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,7 +80,7 @@ const UploadPage = () => {
     if (!deptId) return;
     setLevelId(""); setCourseId("");
     // Fetch only the levels valid for this department via the junction table
-    supabase
+    (supabase as any)
       .from("department_levels")
       .select("level_id, levels(id, name, sort_order)")
       .eq("department_id", deptId)
@@ -98,6 +98,73 @@ const UploadPage = () => {
     setCourseId("");
     supabase.from("courses").select("*").eq("department_id", deptId).eq("level_id", levelId).eq("semester", Number(semester)).order("code").then(({ data }) => setCourses((data as Course[]) || []));
   }, [deptId, levelId, semester]);
+
+  const validateFile = (selectedFile: File | null, type: string): boolean => {
+    if (!selectedFile) return true;
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Material file must be under 10MB.", variant: "destructive" });
+      return false;
+    }
+
+    const fileName = selectedFile.name.toLowerCase();
+    
+    if (type === "pdf") {
+      if (!fileName.endsWith(".pdf") && selectedFile.type !== "application/pdf") {
+        toast({ title: "Invalid File Type", description: "Please upload a PDF file for the PDF type.", variant: "destructive" });
+        return false;
+      }
+    } else if (type === "video") {
+      if (!fileName.endsWith(".mp4") && selectedFile.type !== "video/mp4") {
+        toast({ title: "Invalid File Type", description: "Please upload an MP4 video file for the Video type.", variant: "destructive" });
+        return false;
+      }
+    } else if (type === "image") {
+      const isImg = fileName.match(/\.(jpg|jpeg|png|webp)$/) || selectedFile.type.startsWith("image/");
+      if (!isImg) {
+        toast({ title: "Invalid File Type", description: "Please upload an image file (JPG, PNG, WEBP) for the Image type.", variant: "destructive" });
+        return false;
+      }
+    } else if (type === "text") {
+      const isValidTextOrImg = 
+        fileName.match(/\.(txt|doc|docx|pdf|jpg|jpeg|png|webp)$/) || 
+        selectedFile.type.startsWith("image/") || 
+        selectedFile.type.startsWith("text/") || 
+        selectedFile.type === "application/pdf" ||
+        selectedFile.type === "application/msword" ||
+        selectedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      
+      if (!isValidTextOrImg) {
+        toast({ title: "Invalid File Type", description: "Please upload a document (.pdf, .doc, .docx, .txt) or an image for Notes.", variant: "destructive" });
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const getAcceptAttribute = () => {
+    switch (materialType) {
+      case "pdf":
+        return ".pdf,application/pdf";
+      case "video":
+        return ".mp4,video/mp4";
+      case "image":
+        return ".jpg,.jpeg,.png,.webp,image/*";
+      case "text":
+        return ".txt,.doc,.docx,.pdf,.jpg,.jpeg,.png,.webp,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/*";
+      default:
+        return "*";
+    }
+  };
+
+  const handleTypeChange = (newType: string) => {
+    setMaterialType(newType);
+    if (file) {
+      const isValid = validateFile(file, newType);
+      if (!isValid) {
+        setFile(null);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,23 +224,72 @@ const UploadPage = () => {
   }
 
   const isProfileComplete = profile?.university_id && profile?.department_id && profile?.level_id;
+  const isVerified = profile?.verification_status === "approved";
 
-  if (!isProfileComplete && !isAdmin) {
+  if ((!isProfileComplete || !isVerified) && !isAdmin) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
         <main className="container mx-auto flex min-h-[60vh] items-center justify-center px-4 py-20">
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md">
-            <div className="mb-4 inline-flex items-center justify-center rounded-full bg-primary/10 p-4">
-              <BookOpen className="h-10 w-10 text-primary" />
-            </div>
-            <h2 className="mb-2 text-2xl font-bold text-foreground">Update Your Profile</h2>
-            <p className="mb-6 text-muted-foreground">
-              You must complete your profile by selecting your university, department, and level before you can upload materials.
-            </p>
-            <Button asChild>
-              <Link to="/profile">Go to Profile</Link>
-            </Button>
+            {!isProfileComplete ? (
+              <>
+                <div className="mb-4 inline-flex items-center justify-center rounded-full bg-primary/10 p-4">
+                  <BookOpen className="h-10 w-10 text-primary" />
+                </div>
+                <h2 className="mb-2 text-2xl font-bold text-foreground">Update Your Profile</h2>
+                <p className="mb-6 text-muted-foreground">
+                  You must complete your profile by selecting your university, department, and level before you can upload materials.
+                </p>
+                <Button asChild>
+                  <Link to="/profile">Go to Profile</Link>
+                </Button>
+              </>
+            ) : profile?.verification_status === "pending" ? (
+              <>
+                <div className="mb-4 inline-flex items-center justify-center rounded-full bg-gold/10 p-4 animate-pulse">
+                  <Clock className="h-10 w-10 text-gold" />
+                </div>
+                <h2 className="mb-2 text-2xl font-bold text-foreground">Verification Pending</h2>
+                <p className="mb-6 text-muted-foreground">
+                  Your profile is currently being reviewed by an admin. You will be able to upload materials as soon as your profile is verified.
+                </p>
+                <Button asChild variant="outline">
+                  <Link to="/profile">View Profile Status</Link>
+                </Button>
+              </>
+            ) : profile?.verification_status === "rejected" ? (
+              <>
+                <div className="mb-4 inline-flex items-center justify-center rounded-full bg-destructive/10 p-4">
+                  <XCircle className="h-10 w-10 text-destructive" />
+                </div>
+                <h2 className="mb-2 text-2xl font-bold text-destructive">Verification Rejected</h2>
+                {profile.verification_rejection_reason && (
+                  <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-foreground text-left">
+                    <span className="font-semibold text-destructive">Feedback:</span> {profile.verification_rejection_reason}
+                  </div>
+                )}
+                <p className="mb-6 text-muted-foreground">
+                  Please update your profile information or upload a valid means of identification on your profile page to request re-verification.
+                </p>
+                <Button asChild>
+                  <Link to="/profile">Update Profile & ID</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 inline-flex items-center justify-center rounded-full bg-warning/10 p-4">
+                  <ShieldAlert className="h-10 w-10 text-warning" />
+                </div>
+                <h2 className="mb-2 text-2xl font-bold text-foreground">Verification Required</h2>
+                <p className="mb-6 text-muted-foreground">
+                  Please upload your School ID or Admission Letter on your profile page to get verified by an admin before you can upload materials.
+                </p>
+                <Button asChild>
+                  <Link to="/profile">Go to Profile</Link>
+                </Button>
+              </>
+            )}
           </motion.div>
         </main>
         <Footer />
@@ -315,7 +431,7 @@ const UploadPage = () => {
                     key={type.value}
                     className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${materialType === type.value ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary"}`}
                   >
-                    <input type="radio" name="type" value={type.value} checked={materialType === type.value} onChange={() => setMaterialType(type.value)} className="sr-only" />
+                    <input type="radio" name="type" value={type.value} checked={materialType === type.value} onChange={() => handleTypeChange(type.value)} className="sr-only" />
                     <type.icon className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium text-foreground">{type.label}</span>
                   </label>
@@ -326,7 +442,21 @@ const UploadPage = () => {
             {/* File upload */}
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Upload File</label>
-              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.mp4,.jpg,.jpeg,.png,.webp,.doc,.docx,.txt" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept={getAcceptAttribute()}
+                onChange={(e) => {
+                  const selectedFile = e.target.files?.[0] || null;
+                  if (validateFile(selectedFile, materialType)) {
+                    setFile(selectedFile);
+                  } else {
+                    e.target.value = ""; // Clear file input value
+                    setFile(null);
+                  }
+                }}
+              />
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/50 p-8 text-center transition-colors hover:border-primary/50"
@@ -341,7 +471,7 @@ const UploadPage = () => {
                   <>
                     <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
                     <p className="mb-1 text-sm font-medium text-foreground">Click to select your file</p>
-                    <p className="text-xs text-muted-foreground">PDF, MP4, JPG, PNG up to 50MB</p>
+                    <p className="text-xs text-muted-foreground">PDF, MP4, JPG, PNG up to 10MB</p>
                   </>
                 )}
               </div>

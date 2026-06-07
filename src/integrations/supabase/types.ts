@@ -177,6 +177,8 @@ export type Database = {
           university_id: string | null
           updated_at: string
           user_id: string
+          verification_status: string
+          verification_rejection_reason: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -189,6 +191,8 @@ export type Database = {
           university_id?: string | null
           updated_at?: string
           user_id: string
+          verification_status?: string
+          verification_rejection_reason?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -201,6 +205,8 @@ export type Database = {
           university_id?: string | null
           updated_at?: string
           user_id?: string
+          verification_status?: string
+          verification_rejection_reason?: string | null
         }
         Relationships: [
           {

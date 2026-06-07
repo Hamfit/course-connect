@@ -7,7 +7,7 @@ const Privacy = () => (
     intro="CourseConnect Nigeria Ltd. (“CourseConnect”, “we”, “us”, “our”) respects your privacy. This Policy explains how we collect, use, share, and protect your personal data in compliance with the Nigeria Data Protection Act, 2023 (NDPA) and the regulations of the Nigeria Data Protection Commission (NDPC)."
   >
     <h2>1. Who we are</h2>
-    <p>CourseConnect is a Nigerian-incorporated company providing a platform for university students to share and access course materials. Our principal office is in Yaba, Lagos State, Nigeria.</p>
+    <p>CourseConnect is a Nigerian-incorporated company providing a platform for university students to share and access course materials. Our principal office is in Lagos, Nigeria.</p>
 
     <h2>2. Information we collect</h2>
     <ul>
@@ -63,7 +63,7 @@ const Privacy = () => (
     <p>We will notify you of material changes through the platform or by email. Continued use after notice constitutes acceptance.</p>
 
     <h2>12. Contact our Data Protection Officer</h2>
-    <p>Email: <a href="mailto:dpo@courseconnect.ng">dpo@courseconnect.ng</a><br />Address: Yaba, Lagos, Nigeria</p>
+    <p>Email: <a href="mailto:dpo@courseconnect.ng">dpo@courseconnect.ng</a><br />Address: Lagos, Nigeria</p>
   </LegalLayout>
 );
 

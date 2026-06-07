@@ -8,9 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Pencil, BookOpen, GraduationCap, Building2, FileText, Camera, CheckCircle } from "lucide-react";
+import { Loader2, Pencil, BookOpen, GraduationCap, Building2, FileText, Camera, CheckCircle, Clock, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProfileData {
@@ -23,6 +24,8 @@ interface ProfileData {
   level_id: string | null;
   identification_url: string | null;
   created_at: string;
+  verification_status: string;
+  verification_rejection_reason: string | null;
 }
 
 interface University { id: string; name: string; short_name: string; }
@@ -47,6 +50,7 @@ const Profile = () => {
 
   const [idFile, setIdFile] = useState<File | null>(null);
   const [uploadingId, setUploadingId] = useState(false);
+  const [replaceIdFile, setReplaceIdFile] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [universityId, setUniversityId] = useState<string | null>(null);
@@ -113,7 +117,7 @@ const Profile = () => {
 
   /** Fetch levels filtered by department via the junction table */
   const fetchLevelsForDept = async (deptId: string) => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("department_levels")
       .select("level_id, levels(id, name, sort_order)")
       .eq("department_id", deptId);
@@ -126,6 +130,8 @@ const Profile = () => {
 
   const startEditing = async () => {
     setEditing(true);
+    setReplaceIdFile(false);
+    setIdFile(null);
     const { data: unis } = await supabase.from("universities").select("*").order("name");
     setUniversities(unis || []);
     if (universityId) {
@@ -221,21 +227,34 @@ const Profile = () => {
       identificationUrl = urlData.publicUrl;
     }
 
+    const isSensitiveInfoChanged =
+      universityId !== profile.university_id ||
+      departmentId !== profile.department_id ||
+      levelId !== profile.level_id ||
+      !!idFile;
+
+    const updatePayload: any = {
+      display_name: displayName,
+      university_id: universityId,
+      department_id: departmentId,
+      level_id: levelId,
+      identification_url: identificationUrl,
+    };
+
+    if (isSensitiveInfoChanged) {
+      updatePayload.verification_status = "pending";
+      updatePayload.verification_rejection_reason = null;
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({
-        display_name: displayName,
-        university_id: universityId,
-        department_id: departmentId,
-        level_id: levelId,
-        identification_url: identificationUrl,
-      })
+      .update(updatePayload)
       .eq("user_id", user.id);
 
     if (error) {
-      toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+      toast({ title: "Error", description: error.message || "Failed to update profile.", variant: "destructive" });
     } else {
-      toast({ title: "Profile updated!" });
+      toast({ title: "Profile updated! Waiting for verification." });
       setEditing(false);
       loadProfile(user.id);
     }
@@ -354,15 +373,25 @@ const Profile = () => {
                   </div>
                   <div>
                     <Label>Means of Identification (School ID / Admission Letter)</Label>
-                    {!profile.identification_url ? (
-                      <div className="mt-1">
+                    {!profile.identification_url || replaceIdFile ? (
+                      <div className="mt-1 space-y-2">
                         <Input type="file" accept="image/*,.pdf" onChange={(e) => setIdFile(e.target.files?.[0] || null)} />
-                        <p className="mt-1 text-xs text-muted-foreground">Required to update your profile.</p>
+                        <p className="text-xs text-muted-foreground">Required to update your profile.</p>
+                        {profile.identification_url && (
+                          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => { setReplaceIdFile(false); setIdFile(null); }}>
+                            Cancel replacement
+                          </Button>
+                        )}
                       </div>
                     ) : (
-                      <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                        <CheckCircle className="h-4 w-4 text-primary" /> Document uploaded
-                      </p>
+                      <div className="mt-1 flex items-center justify-between rounded-lg border border-border p-2 bg-secondary/30">
+                        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <CheckCircle className="h-4 w-4 text-primary" /> ID Document Uploaded
+                        </span>
+                        <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setReplaceIdFile(true)}>
+                          Replace File
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <div className="flex gap-2 pt-2">
@@ -374,7 +403,29 @@ const Profile = () => {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-2xl font-bold text-foreground">{profile.display_name}</h1>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-bold text-foreground">{profile.display_name}</h1>
+                    {profile.verification_status === "approved" && (
+                      <Badge className="bg-primary/10 text-primary border-primary/20 gap-1 hover:bg-primary/20">
+                        <CheckCircle className="h-3 w-3" /> Verified Profile
+                      </Badge>
+                    )}
+                    {profile.verification_status === "pending" && (
+                      <Badge className="bg-gold/10 text-gold border-gold/20 gap-1 animate-pulse hover:bg-gold/20">
+                        <Clock className="h-3 w-3" /> Pending Verification
+                      </Badge>
+                    )}
+                    {profile.verification_status === "rejected" && (
+                      <Badge variant="destructive" className="gap-1">
+                        <XCircle className="h-3 w-3" /> Verification Rejected
+                      </Badge>
+                    )}
+                  </div>
+                  {profile.verification_status === "rejected" && profile.verification_rejection_reason && (
+                    <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-foreground max-w-md">
+                      <span className="font-semibold text-destructive">Rejection Reason:</span> {profile.verification_rejection_reason}
+                    </div>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                     {uniName && (
                       <span className="flex items-center gap-1"><Building2 className="h-4 w-4" />{uniName}</span>

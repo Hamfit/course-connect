@@ -115,7 +115,7 @@ const ExplorePage = () => {
 
   const loadLevels = async (deptId: string) => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("department_levels")
       .select("level_id, levels(id, name, sort_order)")
       .eq("department_id", deptId);

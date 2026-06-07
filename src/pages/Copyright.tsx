@@ -24,7 +24,7 @@ const Copyright = () => (
     <p>
       Copyright Agent — CourseConnect Nigeria Ltd.<br />
       Email: <a href="mailto:copyright@courseconnect.ng">copyright@courseconnect.ng</a><br />
-      Address: Yaba, Lagos, Nigeria<br />
+      Address: Lagos, Nigeria<br />
       Phone: +234 800 000 0000
     </p>
 
