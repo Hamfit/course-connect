@@ -83,32 +83,24 @@ const Profile = () => {
     if (!isOwn) matsQuery = matsQuery.eq("status", "approved");
 
     const [{ data }, { data: mats }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("*, universities(name), departments(name), levels(name)")
+        .eq("user_id", uid)
+        .maybeSingle(),
       matsQuery,
     ]);
 
     if (data) {
-      setProfile(data);
+      setProfile(data as any);
       setDisplayName(data.display_name);
       setUniversityId(data.university_id);
       setDepartmentId(data.department_id);
       setLevelId(data.level_id);
 
-      // Resolve names in parallel
-      const [uniRes, deptRes, lvlRes] = await Promise.all([
-        data.university_id
-          ? supabase.from("universities").select("name").eq("id", data.university_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        data.department_id
-          ? supabase.from("departments").select("name").eq("id", data.department_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        data.level_id
-          ? supabase.from("levels").select("name").eq("id", data.level_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-      ]);
-      setUniName((uniRes.data as any)?.name ?? null);
-      setDeptName((deptRes.data as any)?.name ?? null);
-      setLevelName((lvlRes.data as any)?.name ?? null);
+      setUniName((data as any).universities?.name ?? null);
+      setDeptName((data as any).departments?.name ?? null);
+      setLevelName((data as any).levels?.name ?? null);
     }
 
     setMaterials((mats as MaterialSummary[]) || []);
