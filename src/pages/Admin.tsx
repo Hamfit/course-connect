@@ -110,14 +110,14 @@ const AdminPage = () => {
     setLoadingMaterials(true);
     const { data, error } = await supabase
       .from("materials")
-      .select("*, courses(code, title), profiles!materials_uploaded_by_fkey(display_name)")
+      .select("id, title, description, type, status, file_url, created_at, uploaded_by, rejection_reason, courses(code, title), profiles!materials_uploaded_by_fkey(display_name)")
       .eq("status", status)
       .order("created_at", { ascending: false });
 
     if (error) {
       const { data: fallbackData } = await supabase
         .from("materials")
-        .select("*, courses(code, title)")
+        .select("id, title, description, type, status, file_url, created_at, uploaded_by, rejection_reason, courses(code, title)")
         .eq("status", status)
         .order("created_at", { ascending: false });
       setMaterials((fallbackData as any) || []);
