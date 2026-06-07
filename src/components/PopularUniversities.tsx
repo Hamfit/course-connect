@@ -13,32 +13,11 @@ interface UniRow {
 }
 
 const fetchUniversities = async (): Promise<UniRow[]> => {
-  const { data: unis } = await supabase
-    .from("universities")
-    .select("id, name, short_name")
+  const { data } = await (supabase as any)
+    .from("university_course_counts")
+    .select("*")
     .order("name");
-  if (!unis) return [];
-
-  // Live course counts per university (via departments → courses)
-  const counts = await Promise.all(
-    unis.map(async (u) => {
-      const { data: depts } = await supabase
-        .from("departments")
-        .select("id")
-        .eq("university_id", u.id);
-      const deptIds = (depts || []).map((d) => d.id);
-      if (deptIds.length === 0) return { ...u, course_count: 0 };
-      const { data: approvedMaterials } = await supabase
-        .from("materials")
-        .select("course_id, courses!inner(department_id)")
-        .eq("status", "approved")
-        .in("courses.department_id", deptIds);
-
-      const uniqueCourseIds = new Set((approvedMaterials || []).map((m: any) => m.course_id));
-      return { ...u, course_count: uniqueCourseIds.size };
-    }),
-  );
-  return counts;
+  return (data as UniRow[]) || [];
 };
 
 const PopularUniversities = () => {

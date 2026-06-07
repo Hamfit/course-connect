@@ -89,22 +89,20 @@ const AdminPage = () => {
 
   const fetchStats = async () => {
     setLoadingStats(true);
-    const [pending, approved, rejected, total, users, pendingUsers] = await Promise.all([
-      supabase.from("materials").select("*", { count: "exact", head: true }).eq("status", "pending"),
-      supabase.from("materials").select("*", { count: "exact", head: true }).eq("status", "approved"),
-      supabase.from("materials").select("*", { count: "exact", head: true }).eq("status", "rejected"),
-      supabase.from("materials").select("*", { count: "exact", head: true }),
-      supabase.from("profiles").select("*", { count: "exact", head: true }),
-      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("verification_status", "pending"),
-    ]);
-    setStats({
-      pending: pending.count || 0,
-      approved: approved.count || 0,
-      rejected: rejected.count || 0,
-      total: total.count || 0,
-      users: users.count || 0,
-      pendingUsers: pendingUsers.count || 0,
-    });
+    const { data, error } = await supabase.rpc("get_admin_stats");
+    if (error) {
+      toast({ title: "Error fetching stats", description: error.message, variant: "destructive" });
+    } else if (data) {
+      const statsData = data as any;
+      setStats({
+        pending: statsData.pending || 0,
+        approved: statsData.approved || 0,
+        rejected: statsData.rejected || 0,
+        total: statsData.total || 0,
+        users: statsData.users || 0,
+        pendingUsers: statsData.pendingUsers || 0,
+      });
+    }
     setLoadingStats(false);
   };
 
@@ -305,7 +303,7 @@ const AdminPage = () => {
                 <h2 className="mb-4 text-xl font-semibold text-foreground">User Profile Verification</h2>
                 
                 {/* User subtabs */}
-                <div className="mb-6 flex gap-2 border-b border-border pb-4">
+                <div className="mb-6 flex flex-wrap gap-2 border-b border-border pb-4">
                   {(["pending", "approved", "rejected"] as const).map((tab) => (
                     <Button
                       key={tab}
@@ -339,22 +337,22 @@ const AdminPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="rounded-xl border border-border bg-card p-5"
                       >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="mb-2 flex items-center gap-2">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
                               <h3 className="font-semibold text-foreground break-words">{p.display_name}</h3>
                               <span className="text-xs text-muted-foreground">Joined {new Date(p.created_at).toLocaleDateString()}</span>
                             </div>
                             
-                            <div className="grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:grid-cols-3">
-                              <div>University: <strong className="text-foreground">{p.universities?.name || "—"}</strong></div>
-                              <div>Department: <strong className="text-foreground">{p.departments?.name || "—"}</strong></div>
-                              <div>Level: <strong className="text-foreground">{p.levels?.name || "—"}</strong></div>
+                            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                              <div className="break-words">University: <strong className="text-foreground">{p.universities?.name || "—"}</strong></div>
+                              <div className="break-words">Department: <strong className="text-foreground">{p.departments?.name || "—"}</strong></div>
+                              <div className="break-words">Level: <strong className="text-foreground">{p.levels?.name || "—"}</strong></div>
                             </div>
 
                             {/* Identification ID Document preview */}
                             {p.identification_url && (
-                              <div className="mt-4 max-w-sm overflow-hidden rounded-lg border border-border bg-secondary/10">
+                              <div className="mt-4 w-full max-w-sm overflow-hidden rounded-lg border border-border bg-secondary/10">
                                 {p.identification_url.toLowerCase().endsWith(".pdf") ? (
                                   <div className="flex items-center gap-3 p-4">
                                     <FileText className="h-8 w-8 text-primary" />
@@ -376,7 +374,7 @@ const AdminPage = () => {
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:shrink-0">
+                          <div className="flex flex-wrap items-center gap-2 md:justify-end md:shrink-0">
                             {p.identification_url && (
                               <Button variant="outline" size="sm" asChild>
                                 <a href={p.identification_url} target="_blank" rel="noopener noreferrer">

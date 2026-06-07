@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import AdminRoute from "@/components/AdminRoute";
 import { Loader2 } from "lucide-react";
 import AuthenticationGuard from "./components/AuthenticationGuard";
+import ScrollToTop from "./components/ScrollToTop";
 
 const Index = lazy(() => import("./pages/Index"));
 const Explore = lazy(() => import("./pages/Explore"));
@@ -46,6 +47,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public routes */}
