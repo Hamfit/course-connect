@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X, Upload, LogOut, User, Shield } from "lucide-react";
+import { Menu, X, Upload, LogOut, User, Shield } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -28,9 +29,7 @@ const Navbar = () => {
     <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <BookOpen className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="CourseConnect Logo" className="h-9 w-9" />
           <span className="font-display text-xl font-bold text-foreground">
             Course<span className="text-gold">Connect</span>
           </span>
