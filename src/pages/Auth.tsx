@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -166,9 +167,7 @@ const AuthPage = () => {
         className="w-full max-w-md"
       >
         <Link to="/" className="mb-8 flex items-center justify-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <BookOpen className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="CourseConnect Logo" className="h-10 w-10" />
           <span className="font-display text-2xl font-bold text-foreground">
             Course<span className="text-gold">Connect</span>
           </span>

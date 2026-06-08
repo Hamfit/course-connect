@@ -1,4 +1,5 @@
-import { BookOpen, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
@@ -10,9 +11,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/" className="mb-4 flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                <BookOpen className="h-5 w-5 text-primary-foreground" />
-              </div>
+              <img src={logo} alt="CourseConnect Logo" className="h-9 w-9" />
               <span className="font-display text-xl font-bold text-foreground">
                 Course<span className="text-gold">Connect</span>
               </span>
