@@ -59,6 +59,42 @@ export type Database = {
           },
         ]
       }
+      department_levels: {
+        Row: {
+          id: string
+          department_id: string
+          level_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          department_id: string
+          level_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          department_id?: string
+          level_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_levels_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_levels_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           created_at: string

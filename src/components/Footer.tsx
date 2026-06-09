@@ -102,7 +102,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-2 border-t border-border pt-6 text-center text-sm text-muted-foreground sm:flex-row sm:text-left">
-          <p>© {year} CourseConnect Nigeria Ltd. RC: 0000000. All rights reserved.</p>
+          <p>© {year} CourseConnect Nigeria Ltd. RC: 9598525. All rights reserved.</p>
           <p>Built for Nigerian students, by Nigerian students. 🇳🇬</p>
         </div>
       </div>

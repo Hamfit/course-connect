@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 type BrowseStep = "university" | "department" | "level" | "semester" | "materials";
 
 interface University { id: string; name: string; short_name: string; }
-interface Department { id: string; name: string; }
+interface Department { id: string; name: string; university_id: string; }
 interface Level { id: string; name: string; sort_order: number; }
 interface Material {
   id: string; title: string; description: string | null;
