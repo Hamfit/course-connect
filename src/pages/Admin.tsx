@@ -63,12 +63,18 @@ const AdminPage = () => {
   const [section, setSection] = useState<Section>("overview");
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loadingMaterials, setLoadingMaterials] = useState(true);
+  const [materialsPage, setMaterialsPage] = useState(0);
+  const [hasMoreMaterials, setHasMoreMaterials] = useState(true);
+  const [loadingMoreMaterials, setLoadingMoreMaterials] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  
+
   // User verification states
   const [userSubTab, setUserSubTab] = useState<"pending" | "approved" | "rejected">("pending");
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersPage, setUsersPage] = useState(0);
+  const [hasMoreUsers, setHasMoreUsers] = useState(true);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [profileRejectTarget, setProfileRejectTarget] = useState<{ id: string; display_name: string } | null>(null);
   const [profileRejectReason, setProfileRejectReason] = useState("");
@@ -84,7 +90,7 @@ const AdminPage = () => {
 
   useEffect(() => {
     if (!authLoading && user && section !== "overview" && section !== "verify_profiles") {
-      fetchMaterials(section as any);
+      fetchMaterials(section);
     }
   }, [user, authLoading, section]);
 
@@ -94,38 +100,54 @@ const AdminPage = () => {
     if (error) {
       toast({ title: "Error fetching stats", description: error.message, variant: "destructive" });
     } else if (data) {
-      const statsData = data as any;
       setStats({
-        pending: statsData.pending || 0,
-        approved: statsData.approved || 0,
-        rejected: statsData.rejected || 0,
-        total: statsData.total || 0,
-        users: statsData.users || 0,
-        pendingUsers: statsData.pendingUsers || 0,
+        pending: data.pending || 0,
+        approved: data.approved || 0,
+        rejected: data.rejected || 0,
+        total: data.total || 0,
+        users: data.users || 0,
+        pendingUsers: data.pendingUsers || 0,
       });
     }
     setLoadingStats(false);
   };
 
-  const fetchMaterials = async (status: "pending" | "approved" | "rejected") => {
-    setLoadingMaterials(true);
+  const fetchMaterials = async (status: "pending" | "approved" | "rejected", pageNum = 0, append = false) => {
+    if (pageNum === 0) {
+      setLoadingMaterials(true);
+    } else {
+      setLoadingMoreMaterials(true);
+    }
+
+    const from = pageNum * 10;
+    const to = from + 9;
+
     const { data, error } = await supabase
       .from("materials")
       .select("id, title, description, type, status, file_url, created_at, uploaded_by, rejection_reason, courses(code, title), profiles!materials_uploaded_by_fkey(display_name)")
       .eq("status", status)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) {
       const { data: fallbackData } = await supabase
         .from("materials")
         .select("id, title, description, type, status, file_url, created_at, uploaded_by, rejection_reason, courses(code, title)")
         .eq("status", status)
-        .order("created_at", { ascending: false });
-      setMaterials((fallbackData as any) || []);
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      const fetchedFallback = (fallbackData as any) || [];
+      setMaterials((prev) => append ? [...prev, ...fetchedFallback] : fetchedFallback);
+      setHasMoreMaterials(fetchedFallback.length === 10);
+      setMaterialsPage(pageNum);
     } else {
-      setMaterials((data as any) || []);
+      const fetched = (data as any) || [];
+      setMaterials((prev) => append ? [...prev, ...fetched] : fetched);
+      setHasMoreMaterials(fetched.length === 10);
+      setMaterialsPage(pageNum);
     }
     setLoadingMaterials(false);
+    setLoadingMoreMaterials(false);
   };
 
   const updateStatus = async (
@@ -147,8 +169,8 @@ const AdminPage = () => {
           status === "approved"
             ? "Material Approved"
             : rejection_reason && materials.find((m) => m.id === id)?.status === "approved"
-            ? "Approval Revoked"
-            : "Material Rejected",
+              ? "Approval Revoked"
+              : "Material Rejected",
       });
       setMaterials((prev) => prev.filter((m) => m.id !== id));
       fetchStats();
@@ -167,20 +189,29 @@ const AdminPage = () => {
     setRejectReason("");
   };
 
-  const fetchUserProfiles = async (status: "pending" | "approved" | "rejected") => {
-    setLoadingUsers(true);
+  const fetchUserProfiles = async (status: "pending" | "approved" | "rejected", pageNum = 0, append = false) => {
+    if (pageNum === 0) {
+      setLoadingUsers(true);
+    } else {
+      setLoadingMoreUsers(true);
+    }
+
+    const from = pageNum * 10;
+    const to = from + 9;
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*, universities(name, short_name), departments(name), levels(name)")
       .eq("verification_status", status)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) {
       toast({ title: "Error fetching profiles", description: error.message, variant: "destructive" });
       setUserProfiles([]);
     } else {
       const profiles = (data as any) || [];
-      
+
       const getStoragePath = (url: string) => {
         const idx = url.indexOf('/identifications/');
         if (idx !== -1) {
@@ -218,9 +249,12 @@ const AdminPage = () => {
         return p;
       });
 
-      setUserProfiles(profilesWithSignedUrls);
+      setUserProfiles((prev) => append ? [...prev, ...profilesWithSignedUrls] : profilesWithSignedUrls);
+      setHasMoreUsers(profilesWithSignedUrls.length === 10);
+      setUsersPage(pageNum);
     }
     setLoadingUsers(false);
+    setLoadingMoreUsers(false);
   };
 
   useEffect(() => {
@@ -317,11 +351,10 @@ const AdminPage = () => {
               <button
                 key={item.key}
                 onClick={() => setSection(item.key)}
-                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  section === item.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted"
-                }`}
+                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${section === item.key
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-muted"
+                  }`}
               >
                 <span className="flex items-center gap-2">
                   <item.icon className="h-4 w-4" />
@@ -341,7 +374,7 @@ const AdminPage = () => {
             {section === "verify_profiles" ? (
               <div>
                 <h2 className="mb-4 text-xl font-semibold text-foreground">User Profile Verification</h2>
-                
+
                 {/* User subtabs */}
                 <div className="mb-6 flex flex-wrap gap-2 border-b border-border pb-4">
                   {(["pending", "approved", "rejected"] as const).map((tab) => (
@@ -354,7 +387,7 @@ const AdminPage = () => {
                     >
                       {tab} ({
                         tab === "pending" ? stats.pendingUsers :
-                        tab === "approved" ? "Verified" : "Rejected"
+                          tab === "approved" ? "Verified" : "Rejected"
                       })
                     </Button>
                   ))}
@@ -383,7 +416,7 @@ const AdminPage = () => {
                               <h3 className="font-semibold text-foreground break-words">{p.display_name}</h3>
                               <span className="text-xs text-muted-foreground">Joined {new Date(p.created_at).toLocaleDateString()}</span>
                             </div>
-                            
+
                             <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
                               <div className="break-words">University: <strong className="text-foreground">{p.universities?.name || "—"}</strong></div>
                               <div className="break-words">Department: <strong className="text-foreground">{p.departments?.name || "—"}</strong></div>
@@ -481,6 +514,24 @@ const AdminPage = () => {
                         )}
                       </motion.div>
                     ))}
+                    {hasMoreUsers && (
+                      <div className="mt-6 flex justify-center">
+                        <Button
+                          variant="outline"
+                          onClick={() => fetchUserProfiles(userSubTab, usersPage + 1, true)}
+                          disabled={loadingMoreUsers}
+                        >
+                          {loadingMoreUsers ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            "Load More Profiles"
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -631,6 +682,24 @@ const AdminPage = () => {
                         </motion.div>
                       );
                     })}
+                    {hasMoreMaterials && (
+                      <div className="mt-6 flex justify-center">
+                        <Button
+                          variant="outline"
+                          onClick={() => fetchMaterials(section as any, materialsPage + 1, true)}
+                          disabled={loadingMoreMaterials}
+                        >
+                          {loadingMoreMaterials ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            "Load More Materials"
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

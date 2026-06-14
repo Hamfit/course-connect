@@ -359,6 +359,17 @@ export type Database = {
         Args: { _id: string }
         Returns: undefined
       }
+      get_admin_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          pending: number
+          approved: number
+          rejected: number
+          total: number
+          users: number
+          pendingUsers: number
+        }
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

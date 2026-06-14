@@ -45,6 +45,9 @@ const ExplorePage = () => {
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "title">("recent");
   const [viewing, setViewing] = useState<Material | null>(null);
@@ -149,19 +152,39 @@ const ExplorePage = () => {
     setLoading(false);
   };
 
-  const loadMaterials = async (deptId: string, levelId: string, semester: number) => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("materials")
-      .select("id, title, description, type, file_url, downloads, course_id, created_at, courses!inner(code, title, semester)")
-      .eq("status", "approved")
-      .eq("courses.department_id", deptId)
-      .eq("courses.level_id", levelId)
-      .eq("courses.semester", semester)
-      .order("created_at", { ascending: false })
-      .limit(60);
-    setMaterials((data as Material[]) || []);
+  const ITEMS_PER_PAGE = 20;
+
+  const loadMaterials = async (deptId: string, levelId: string, semester: number, pageNum = 0, append = false) => {
+    if (pageNum === 0) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const from = pageNum * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      const { data } = await supabase
+        .from("materials")
+        .select("id, title, description, type, file_url, downloads, course_id, created_at, courses!inner(code, title, semester)")
+        .eq("status", "approved")
+        .eq("courses.department_id", deptId)
+        .eq("courses.level_id", levelId)
+        .eq("courses.semester", semester)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      const fetched = (data as Material[]) || [];
+      setMaterials((prev) => append ? [...prev, ...fetched] : fetched);
+      setHasMore(fetched.length === ITEMS_PER_PAGE);
+      setPage(pageNum);
+    } catch (err) {
+      console.error("Error loading materials:", err);
+    }
+    
     setLoading(false);
+    setLoadingMore(false);
   };
 
   const breadcrumbs = [
@@ -196,10 +219,12 @@ const ExplorePage = () => {
               <button
                 onClick={() => {
                   setStep(b.step);
-                if (b.step === "university") { setSelectedUni(null); setSelectedDept(null); setSelectedLevel(null); setSelectedSemester(null); }
-                if (b.step === "department") { setSelectedDept(null); setSelectedLevel(null); setSelectedSemester(null); }
-                if (b.step === "level") { setSelectedLevel(null); setSelectedSemester(null); }
-                if (b.step === "semester") { setSelectedSemester(null); }
+                  if (b.step === "university") { setSelectedUni(null); setSelectedDept(null); setSelectedLevel(null); setSelectedSemester(null); }
+                  if (b.step === "department") { setSelectedDept(null); setSelectedLevel(null); setSelectedSemester(null); }
+                  if (b.step === "level") { setSelectedLevel(null); setSelectedSemester(null); }
+                  if (b.step === "semester") { setSelectedSemester(null); }
+                  setPage(0);
+                  setHasMore(true);
                   setSearchQuery("");
                 }}
                 className="font-medium text-primary hover:underline truncate max-w-[12rem]"
@@ -399,36 +424,60 @@ const ExplorePage = () => {
                 <Button asChild><a href="/upload">Upload Materials</a></Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleMaterials.map((material) => {
-                  const Icon = typeIcons[material.type] || FileText;
-                  const colorClass = typeColors[material.type] || typeColors.text;
-                  return (
-                    <div key={material.id} className="flex flex-col rounded-xl border border-border bg-card p-5 card-elevated min-w-0">
-                      <div className="mb-3 flex items-start justify-between gap-2">
-                        <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}>
-                          <Icon className="h-3.5 w-3.5" />
-                          {material.type.toUpperCase()}
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {visibleMaterials.map((material) => {
+                    const Icon = typeIcons[material.type] || FileText;
+                    const colorClass = typeColors[material.type] || typeColors.text;
+                    return (
+                      <div key={material.id} className="flex flex-col rounded-xl border border-border bg-card p-5 card-elevated min-w-0">
+                        <div className="mb-3 flex items-start justify-between gap-2">
+                          <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}>
+                            <Icon className="h-3.5 w-3.5" />
+                            {material.type.toUpperCase()}
+                          </div>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">{material.downloads} downloads</span>
                         </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{material.downloads} downloads</span>
+                        <h3 className="mb-1 font-display text-base font-semibold text-foreground break-words">{material.title}</h3>
+                        <p className="mb-3 text-sm text-muted-foreground break-words flex-1">
+                          {material.courses?.code} • {material.courses?.title}
+                        </p>
+                        {material.file_url && (
+                          <div className="flex gap-2">
+                            <Button size="sm" className="flex-1 gap-1.5" onClick={() => setViewing(material)}>
+                              <Eye className="h-3.5 w-3.5" /> View
+                            </Button>
+                            <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={() => handleDownload(material)}>
+                              <Download className="h-3.5 w-3.5" /> Download
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <h3 className="mb-1 font-display text-base font-semibold text-foreground break-words">{material.title}</h3>
-                      <p className="mb-3 text-sm text-muted-foreground break-words flex-1">
-                        {material.courses?.code} • {material.courses?.title}
-                      </p>
-                      {material.file_url && (
-                        <div className="flex gap-2">
-                          <Button size="sm" className="flex-1 gap-1.5" onClick={() => setViewing(material)}>
-                            <Eye className="h-3.5 w-3.5" /> View
-                          </Button>
-                          <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={() => handleDownload(material)}>
-                            <Download className="h-3.5 w-3.5" /> Download
-                          </Button>
-                        </div>
+                    );
+                  })}
+                </div>
+                {hasMore && (
+                  <div className="mt-8 flex justify-center">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        if (selectedDept && selectedLevel && selectedSemester) {
+                          loadMaterials(selectedDept.id, selectedLevel.id, selectedSemester, page + 1, true);
+                        }
+                      }}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Load More"
                       )}
-                    </div>
-                  );
-                })}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>
