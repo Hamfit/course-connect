@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { POSTGRES_UNIQUE_VIOLATION, supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
-import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   displayName: string | null;
+  hasAgreements: boolean;
+  refreshAgreements: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -16,7 +17,9 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   displayName: null,
-  signOut: async () => {},
+  hasAgreements: true,
+  refreshAgreements: async () => { },
+  signOut: async () => { },
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -24,6 +27,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [hasAgreements, setHasAgreements] = useState<boolean>(true);
+
+  const checkAgreements = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("user_agreements")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("Error checking user agreements:", error.message);
+        setHasAgreements(true); // Fallback to avoid locking user out
+      } else {
+        setHasAgreements(!!data);
+      }
+    } catch (err) {
+      console.error("Failed checking agreements:", err);
+      setHasAgreements(true);
+    }
+  };
+
+  const refreshAgreements = async () => {
+    if (user) {
+      await checkAgreements(user.id);
+    }
+  };
 
   useEffect(() => {
     let initialLoaded = false;
@@ -39,12 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const raw = localStorage.getItem("cc_pending_agreement");
           if (raw) pendingAgreement = JSON.parse(raw);
-        } catch {}
+        } catch (e) {
+          console.warn("Could not read local agreement state:", e);
+        }
+
         if (onlyGoogle && isBrandNew) {
           // Allow new Google signups only if the user explicitly agreed on the auth page.
           if (pendingAgreement) {
             try {
-              await supabase.from("user_agreements").insert({
+              const { error } = await supabase.from("user_agreements").insert({
                 user_id: u.id,
                 agreed_privacy: true,
                 agreed_terms: true,
@@ -53,30 +85,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signup_method: "google",
                 agreed_at: pendingAgreement.at ?? new Date().toISOString(),
               });
-            } catch {}
-            try { localStorage.removeItem("cc_pending_agreement"); } catch {}
-            setSession(session);
-            setUser(u);
-            setLoading(false);
-            return;
+              if (error) {
+                console.error("Failed to auto-insert Google agreements:", error.message);
+                if (error.code === POSTGRES_UNIQUE_VIOLATION) {
+                  setHasAgreements(true);
+                } else {
+                  setHasAgreements(false);
+                }
+              } else {
+                setHasAgreements(true);
+              }
+            } catch (err) {
+              console.error("Exception in auto-insert Google agreements:", err);
+              setHasAgreements(false);
+            }
+            try {
+              localStorage.removeItem("cc_pending_agreement");
+            } catch (e) {
+              console.warn("Failed to clear local agreement state:", e);
+            }
+          } else {
+            setHasAgreements(false);
           }
-          // Block: this Google account has no prior CourseConnect registration.
-          try {
-            await supabase.functions.invoke("block-new-google-signup");
-          } catch {
-            // ignore — we still sign out below
-          }
-          await supabase.auth.signOut();
-          toast.error("No account found", {
-            description: "Please sign up with email and password first, then you can use Google to sign in.",
-          });
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-          return;
+        } else {
+          await checkAgreements(u.id);
         }
-
+      } else if (event === "SIGNED_OUT") {
+        setHasAgreements(true);
       }
+
       setSession(session);
       setUser(session?.user ?? null);
       if (initialLoaded) {
@@ -84,9 +121,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        await checkAgreements(session.user.id);
+      }
       initialLoaded = true;
       setLoading(false);
     });
@@ -107,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, displayName, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, displayName, hasAgreements, refreshAgreements, signOut }}>
       {children}
     </AuthContext.Provider>
   );

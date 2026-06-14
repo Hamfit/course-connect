@@ -15,3 +15,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+export const POSTGRES_UNIQUE_VIOLATION = "23505";

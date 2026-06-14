@@ -9,6 +9,7 @@ import AdminRoute from "@/components/AdminRoute";
 import { Loader2 } from "lucide-react";
 import AuthenticationGuard from "./components/AuthenticationGuard";
 import ScrollToTop from "./components/ScrollToTop";
+import AgreementsOverlay from "./components/AgreementsOverlay";
 
 const Index = lazy(() => import("./pages/Index"));
 const Explore = lazy(() => import("./pages/Explore"));
@@ -48,6 +49,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
+          <AgreementsOverlay />
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public routes */}
