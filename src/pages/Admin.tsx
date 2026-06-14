@@ -47,6 +47,7 @@ interface UserProfile {
   department_id: string | null;
   level_id: string | null;
   identification_url: string | null;
+  signed_identification_url?: string;
   created_at: string;
   verification_status: string;
   verification_rejection_reason: string | null;
@@ -178,7 +179,46 @@ const AdminPage = () => {
       toast({ title: "Error fetching profiles", description: error.message, variant: "destructive" });
       setUserProfiles([]);
     } else {
-      setUserProfiles((data as any) || []);
+      const profiles = (data as any) || [];
+      
+      const getStoragePath = (url: string) => {
+        const idx = url.indexOf('/identifications/');
+        if (idx !== -1) {
+          return url.substring(idx + '/identifications/'.length);
+        }
+        return url;
+      };
+
+      const paths = profiles
+        .map((p: any) => p.identification_url ? getStoragePath(p.identification_url) : null)
+        .filter(Boolean) as string[];
+
+      let signedUrlsMap: Record<string, string> = {};
+      if (paths.length > 0) {
+        const { data: signedData } = await supabase.storage
+          .from("identifications")
+          .createSignedUrls(paths, 3600);
+        if (signedData) {
+          signedData.forEach((item) => {
+            if (item.signedUrl) {
+              signedUrlsMap[item.path] = item.signedUrl;
+            }
+          });
+        }
+      }
+
+      const profilesWithSignedUrls = profiles.map((p: any) => {
+        if (p.identification_url) {
+          const path = getStoragePath(p.identification_url);
+          return {
+            ...p,
+            signed_identification_url: signedUrlsMap[path] || p.identification_url,
+          };
+        }
+        return p;
+      });
+
+      setUserProfiles(profilesWithSignedUrls);
     }
     setLoadingUsers(false);
   };
@@ -364,7 +404,7 @@ const AdminPage = () => {
                                 ) : (
                                   <div className="relative group">
                                     <img
-                                      src={p.identification_url}
+                                      src={p.signed_identification_url || p.identification_url}
                                       alt="Student ID card or admission letter preview"
                                       className="max-h-48 w-full object-contain bg-black/5"
                                     />
@@ -377,7 +417,7 @@ const AdminPage = () => {
                           <div className="flex flex-wrap items-center gap-2 md:justify-end md:shrink-0">
                             {p.identification_url && (
                               <Button variant="outline" size="sm" asChild>
-                                <a href={p.identification_url} target="_blank" rel="noopener noreferrer">
+                                <a href={p.signed_identification_url || p.identification_url || ""} target="_blank" rel="noopener noreferrer">
                                   <ExternalLink className="mr-1 h-3 w-3" /> View ID
                                 </a>
                               </Button>
