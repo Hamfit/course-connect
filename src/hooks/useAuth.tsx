@@ -75,21 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
           return;
         }
-        // Email-signup case: session arrived after email verification; persist pending agreement.
-        if (pendingAgreement && isBrandNew) {
-          try {
-            await supabase.from("user_agreements").insert({
-              user_id: u.id,
-              agreed_privacy: true,
-              agreed_terms: true,
-              agreed_copyright: true,
-              agreed_community_guidelines: true,
-              signup_method: pendingAgreement.method ?? "email",
-              agreed_at: pendingAgreement.at ?? new Date().toISOString(),
-            });
-          } catch {}
-          try { localStorage.removeItem("cc_pending_agreement"); } catch {}
-        }
+
       }
       setSession(session);
       setUser(session?.user ?? null);

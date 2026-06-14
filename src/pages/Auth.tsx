@@ -105,7 +105,15 @@ const AuthPage = () => {
           email,
           password,
           options: {
-            data: { display_name: displayName },
+            data: {
+              display_name: displayName,
+              agreed_to_terms: "true",
+              agreed_privacy: "true",
+              agreed_copyright: "true",
+              agreed_community_guidelines: "true",
+              signup_method: "email",
+              agreed_at: new Date().toISOString(),
+            },
             emailRedirectTo: `${window.location.origin}/verify-success`,
           },
         });
@@ -119,28 +127,7 @@ const AuthPage = () => {
             variant: "destructive",
           });
         } else {
-          // Record the agreement for this new account. RLS requires auth.uid() == user_id;
-          // if email confirmation is required there's no session yet, so stash the intent
-          // and the auth listener will persist it on first sign-in.
-          if (data.user) {
-            try {
-              localStorage.setItem(
-                "cc_pending_agreement",
-                JSON.stringify({ method: "email", at: new Date().toISOString() }),
-              );
-            } catch { }
-            if (data.session) {
-              await supabase.from("user_agreements").insert({
-                user_id: data.user.id,
-                agreed_privacy: true,
-                agreed_terms: true,
-                agreed_copyright: true,
-                agreed_community_guidelines: true,
-                signup_method: "email",
-              });
-              try { localStorage.removeItem("cc_pending_agreement"); } catch { }
-            }
-          }
+
           toast({
             title: "Check your email",
             description: "We've sent you a verification link. Please confirm your email to continue.",
