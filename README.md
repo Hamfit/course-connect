@@ -26,7 +26,7 @@ CourseConnect is a premium, secure academic resources sharing platform designed 
 
 ---
 
-## 🗄️ Database Schema Outline
+## 🗄️ Database Schema Outline...
 
 * **Academic Hierarchy**:
   * `universities`: Maps institutions (e.g. UNILAG, UI, OAU) with name and short name.
@@ -43,7 +43,7 @@ CourseConnect is a premium, secure academic resources sharing platform designed 
 
 ---
 
-## ⚙️ Local Development Setup
+## ⚙️ Local Development Setup...
 
 ### Prerequisites
 * [Node.js](https://nodejs.org/) (v18 or higher recommended)
