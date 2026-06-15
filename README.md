@@ -4,7 +4,7 @@ CourseConnect is a premium, secure academic resources sharing platform designed 
 
 ---
 
-## 🚀 Key Features
+## 🚀 Key Features...
 
 * **Hierarchical Explorer**: Seamlessly browse approved course materials by filtering through University, Department, Level, and Semester.
 * **Student Profile Verification**: To maintain academic integrity, uploading materials is restricted to verified users. Students submit their university details and a photo or PDF of their student ID/admission letter, which is then moderated by admins.
