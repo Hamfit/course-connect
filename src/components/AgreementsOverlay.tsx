@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { POSTGRES_UNIQUE_VIOLATION, supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,9 +17,11 @@ const AgreementsOverlay = () => {
   const [agreedCommunity, setAgreedCommunity] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const { pathname } = useLocation()
+
   // Exempt legal pages so blocked users can read them
   const isLegalPage = ["/privacy", "/terms", "/community-guidelines", "/copyright"].includes(
-    window.location.pathname
+    pathname
   );
 
   if (!user || hasAgreements || isLegalPage) {
