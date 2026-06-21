@@ -5,12 +5,12 @@ import { Menu, X, Upload, LogOut, User, Shield } from "lucide-react";
 import logo from "@/assets/logo.ico";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { user, displayName, signOut } = useAuth();
+  const { user, displayName, avatarUrl, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
 
   const links: { to: string; label: string; icon?: typeof Upload }[] = [
@@ -56,6 +56,7 @@ const Navbar = () => {
             <>
               <Link to="/profile" className="flex items-center gap-2 rounded-full hover:opacity-80 transition-opacity">
                 <Avatar className="h-8 w-8">
+                  <AvatarImage src={avatarUrl || undefined} alt={displayName || ""} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
                     {(displayName || user.email || "U").slice(0, 2).toUpperCase()}
                   </AvatarFallback>

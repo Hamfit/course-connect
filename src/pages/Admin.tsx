@@ -14,6 +14,7 @@ import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { getGoogleDrivePreviewUrl } from "@/lib/utils";
 import { RotateCcw } from "lucide-react";
 
 interface Material {
@@ -621,7 +622,7 @@ const AdminPage = () => {
                             <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:shrink-0">
                               {material.file_url && (
                                 <Button variant="outline" size="sm" asChild>
-                                  <a href={material.file_url} target="_blank" rel="noopener noreferrer">
+                                  <a href={getGoogleDrivePreviewUrl(material.file_url)} target="_blank" rel="noopener noreferrer">
                                     <ExternalLink className="mr-1 h-3 w-3" /> View
                                   </a>
                                 </Button>

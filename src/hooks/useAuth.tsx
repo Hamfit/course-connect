@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   displayName: string | null;
+  avatarUrl: string | null;
   hasAgreements: boolean;
   refreshAgreements: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   displayName: null,
+  avatarUrl: null,
   hasAgreements: true,
   refreshAgreements: async () => { },
   signOut: async () => { },
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [hasAgreements, setHasAgreements] = useState<boolean>(true);
   const [checkingAgreements, setCheckingAgreements] = useState(true);
   const checkedUserIdRef = useRef<string | null>(null);
@@ -167,13 +170,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     runChecks();
   }, [session]);
 
-  // 3. Load user display name when authenticated
+  // 3. Load user display name and avatar, and subscribe to profile updates
   useEffect(() => {
-    if (!user) { setDisplayName(null); return; }
-    supabase.from("profiles").select("display_name").eq("user_id", user.id).single()
-      .then(({ data }) => {
-        setDisplayName(data?.display_name ?? user.user_metadata?.display_name ?? null);
-      });
+    if (!user) { 
+      setDisplayName(null); 
+      setAvatarUrl(null); 
+      return; 
+    }
+    
+    const fetchProfile = () => {
+      supabase.from("profiles").select("display_name, avatar_url").eq("user_id", user.id).single()
+        .then(({ data }) => {
+          setDisplayName(data?.display_name ?? user.user_metadata?.display_name ?? null);
+          setAvatarUrl(data?.avatar_url ?? null);
+        });
+    };
+
+    fetchProfile();
+
+    const channel = supabase
+      .channel(`profile-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setDisplayName(payload.new.display_name ?? null);
+          setAvatarUrl(payload.new.avatar_url ?? null);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const signOut = async () => {
@@ -183,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const activeLoading = authLoading || (user ? checkingAgreements : false);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading: activeLoading, displayName, hasAgreements, refreshAgreements, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading: activeLoading, displayName, avatarUrl, hasAgreements, refreshAgreements, signOut }}>
       {children}
     </AuthContext.Provider>
   );

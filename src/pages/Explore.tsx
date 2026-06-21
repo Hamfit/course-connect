@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
+import { getGoogleDrivePreviewUrl, getGoogleDriveDownloadUrl } from "@/lib/utils";
 
 type BrowseStep = "university" | "department" | "level" | "semester" | "materials";
 
@@ -77,6 +78,21 @@ const ExplorePage = () => {
 
   const handleDownload = async (material: Material) => {
     if (!material.file_url) return;
+
+    if (material.file_url.includes("drive.google.com") || material.file_url.includes("docs.google.com")) {
+      const downloadUrl = getGoogleDriveDownloadUrl(material.file_url);
+      window.open(downloadUrl, "_blank");
+      
+      // Increment downloads counter
+      try {
+        await supabase.rpc("increment_material_downloads", { _id: material.id });
+        setMaterials((prev) => prev.map((m) => m.id === material.id ? { ...m, downloads: m.downloads + 1 } : m));
+      } catch {
+        /* noop */
+      }
+      return;
+    }
+
     try {
       const res = await fetch(material.file_url);
       const blob = await res.blob();
@@ -494,14 +510,20 @@ const ExplorePage = () => {
             )}
           </DialogHeader>
           <div className="bg-muted/30 max-h-[70vh] overflow-auto">
-            {viewing?.file_url && viewing.type === "pdf" && (
-              <iframe src={viewing.file_url} className="h-[70vh] w-full" title={viewing.title} />
-            )}
-            {viewing?.file_url && viewing.type === "image" && (
-              <img src={viewing.file_url} alt={viewing.title} className="mx-auto max-h-[70vh] w-auto" />
-            )}
-            {viewing?.file_url && viewing.type === "video" && (
-              <video src={viewing.file_url} controls className="mx-auto max-h-[70vh] w-full bg-black" />
+            {viewing?.file_url && (viewing.file_url.includes("drive.google.com") || viewing.file_url.includes("docs.google.com")) ? (
+              <iframe src={getGoogleDrivePreviewUrl(viewing.file_url)} className="h-[70vh] w-full border-0" title={viewing.title} allow="autoplay" />
+            ) : (
+              <>
+                {viewing?.file_url && viewing.type === "pdf" && (
+                  <iframe src={viewing.file_url} className="h-[70vh] w-full border-0" title={viewing.title} />
+                )}
+                {viewing?.file_url && viewing.type === "image" && (
+                  <img src={viewing.file_url} alt={viewing.title} className="mx-auto max-h-[70vh] w-auto" />
+                )}
+                {viewing?.file_url && viewing.type === "video" && (
+                  <video src={viewing.file_url} controls className="mx-auto max-h-[70vh] w-full bg-black" />
+                )}
+              </>
             )}
             {viewing?.type === "text" && (
               <div className="p-4 sm:p-6 whitespace-pre-wrap text-sm text-foreground">

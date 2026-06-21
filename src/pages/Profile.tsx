@@ -159,8 +159,8 @@ const Profile = () => {
       toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Avatar must be under 2MB.", variant: "destructive" });
+    if (file.size > 1 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Avatar must be under 1MB.", variant: "destructive" });
       return;
     }
 

@@ -101,8 +101,8 @@ const UploadPage = () => {
 
   const validateFile = (selectedFile: File | null, type: string): boolean => {
     if (!selectedFile) return true;
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Material file must be under 10MB.", variant: "destructive" });
+    if (selectedFile.size > 1 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Material file must be under 1MB.", variant: "destructive" });
       return false;
     }
 
@@ -207,7 +207,11 @@ const UploadPage = () => {
       if (error) throw error;
 
       setSubmitted(true);
-      toast({ title: "Material Submitted!", description: "Your material has been submitted for review." });
+      if (isAdmin) {
+        toast({ title: "Material Published!", description: "Your material has been uploaded and is immediately live." });
+      } else {
+        toast({ title: "Material Submitted!", description: "Your material has been submitted for review." });
+      }
     } catch (error: any) {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     } finally {
@@ -471,7 +475,7 @@ const UploadPage = () => {
                   <>
                     <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
                     <p className="mb-1 text-sm font-medium text-foreground">Click to select your file</p>
-                    <p className="text-xs text-muted-foreground">PDF, MP4, JPG, PNG up to 10MB</p>
+                    <p className="text-xs text-muted-foreground">PDF, MP4, JPG, PNG up to 1MB</p>
                   </>
                 )}
               </div>
