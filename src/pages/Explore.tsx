@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, FileText, Video, Image, BookOpen, ChevronRight, Filter, GraduationCap, CalendarDays, Loader2, Download, Eye, X } from "lucide-react";
+import { Search, FileText, Video, Image, BookOpen, ChevronRight, Filter, GraduationCap, CalendarDays, Loader2, Download, Eye, X, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -52,6 +52,27 @@ const ExplorePage = () => {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "title">("recent");
   const [viewing, setViewing] = useState<Material | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      viewerRef.current?.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   // Global cache states
   const [universities, setUniversities] = useState<University[]>([]);
@@ -78,18 +99,35 @@ const ExplorePage = () => {
 
   const handleDownload = async (material: Material) => {
     if (!material.file_url) return;
+    setDownloadingId(material.id);
 
     if (material.file_url.includes("drive.google.com") || material.file_url.includes("docs.google.com")) {
       const downloadUrl = getGoogleDriveDownloadUrl(material.file_url);
-      window.open(downloadUrl, "_blank");
       
-      // Increment downloads counter
-      try {
-        await supabase.rpc("increment_material_downloads", { _id: material.id });
-        setMaterials((prev) => prev.map((m) => m.id === material.id ? { ...m, downloads: m.downloads + 1 } : m));
-      } catch {
-        /* noop */
-      }
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = downloadUrl;
+      document.body.appendChild(iframe);
+      
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 10000);
+      
+      // Delay counter increment slightly to match download commencement
+      setTimeout(async () => {
+        setDownloadingId(null);
+        try {
+          await supabase.rpc("increment_material_downloads", { _id: material.id });
+          setMaterials((prev) => prev.map((m) => m.id === material.id ? { ...m, downloads: m.downloads + 1 } : m));
+          if (viewing?.id === material.id) {
+             setViewing(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : prev);
+          }
+        } catch {
+          /* noop */
+        }
+      }, 1500);
       return;
     }
 
@@ -107,11 +145,16 @@ const ExplorePage = () => {
       URL.revokeObjectURL(url);
     } catch {
       window.open(material.file_url, "_blank");
+    } finally {
+      setDownloadingId(null);
     }
     // Increment downloads counter (best-effort, fire-and-forget).
     try {
       await supabase.rpc("increment_material_downloads", { _id: material.id });
       setMaterials((prev) => prev.map((m) => m.id === material.id ? { ...m, downloads: m.downloads + 1 } : m));
+      if (viewing?.id === material.id) {
+         setViewing(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : prev);
+      }
     } catch {
       /* noop */
     }
@@ -463,8 +506,9 @@ const ExplorePage = () => {
                             <Button size="sm" className="flex-1 gap-1.5" onClick={() => setViewing(material)}>
                               <Eye className="h-3.5 w-3.5" /> View
                             </Button>
-                            <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={() => handleDownload(material)}>
-                              <Download className="h-3.5 w-3.5" /> Download
+                            <Button size="sm" variant="outline" className="flex-1 gap-1.5" disabled={downloadingId === material.id} onClick={() => handleDownload(material)}>
+                              {downloadingId === material.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                              {downloadingId === material.id ? "Starting..." : "Download"}
                             </Button>
                           </div>
                         )}
@@ -509,7 +553,17 @@ const ExplorePage = () => {
               <p className="text-xs text-muted-foreground">{viewing.courses.code} • {viewing.courses.title}</p>
             )}
           </DialogHeader>
-          <div className="bg-muted/30 max-h-[70vh] overflow-auto">
+          <div ref={viewerRef} className="bg-muted/30 max-h-[70vh] overflow-auto relative bg-background">
+            {isFullscreen && (
+              <Button 
+                variant="secondary" 
+                size="icon" 
+                className="absolute top-4 right-4 z-50 rounded-full opacity-50 hover:opacity-100" 
+                onClick={toggleFullscreen}
+              >
+                <Minimize2 className="h-4 w-4" />
+              </Button>
+            )}
             {viewing?.file_url && (viewing.file_url.includes("drive.google.com") || viewing.file_url.includes("docs.google.com")) ? (
               <iframe src={getGoogleDrivePreviewUrl(viewing.file_url)} className="h-[70vh] w-full border-0" title={viewing.title} allow="autoplay" />
             ) : (
@@ -536,11 +590,12 @@ const ExplorePage = () => {
           </div>
           {viewing?.file_url && (
             <div className="flex justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:px-6">
-              <Button variant="outline" size="sm" asChild>
-                <a href={viewing.file_url} target="_blank" rel="noopener noreferrer">Open in new tab</a>
+              <Button variant="outline" size="sm" onClick={toggleFullscreen} className="gap-1.5">
+                <Maximize2 className="h-3.5 w-3.5" /> Fullscreen
               </Button>
-              <Button size="sm" className="gap-1.5" onClick={() => viewing && handleDownload(viewing)}>
-                <Download className="h-3.5 w-3.5" /> Download
+              <Button size="sm" className="gap-1.5" disabled={downloadingId === viewing.id} onClick={() => viewing && handleDownload(viewing)}>
+                {downloadingId === viewing.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {downloadingId === viewing.id ? "Starting..." : "Download"}
               </Button>
             </div>
           )}
